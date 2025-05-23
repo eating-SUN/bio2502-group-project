@@ -3,5 +3,7 @@ data/clinvar/*
 data/dbNSFP5/*
 data/prs/*
 data/regulome/*
+test_files/HG00096.pindel.illumina_high_coverage.20190831.sites.vcf
+
 !.gitkeep
 
