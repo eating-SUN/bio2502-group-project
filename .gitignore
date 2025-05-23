@@ -1,0 +1,7 @@
+# Ignore large data files
+data/clinvar/*
+data/dbNSFP5/*
+data/prs/*
+data/regulome/*
+!.gitkeep
+
