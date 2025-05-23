@@ -9,7 +9,7 @@
     <title>致病性变异分析系统</title>
     
     <style>
-         .results-container {
+        .results-container {
             max-width: 1200px;
             margin: 20px auto;
         }
@@ -38,10 +38,10 @@
                         <a class="nav-link" href="{{ url_for('main.upload_page') }}">上传数据</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.results') }}">分析结果</a>
+                        <a class="nav-link" href="{{ url_for('main.results_page') }}">分析结果</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.results') }}">下载报告</a> 
+                        <a class="nav-link" href="{{ url_for('main.results_page') }}">下载报告</a> 
                     </li> 
                 </ul>
             </div>
@@ -49,35 +49,48 @@
     </nav>
 
 <!-- 结果展示区 --> 
+<!-- 删掉原有的Jinja2变量，改为纯HTML+JS动态填充 -->
 <div class="container mt-4">
-        <div class="card">
-            <div class="card-header bg-success text-white">
-                <h3 class="mb-0">分析结果</h3>
+    <div class="card">
+        <div class="card-header bg-success text-white">
+            <h3 class="mb-0">分析结果</h3>
+        </div>
+        <div class="card-body">
+            <!-- 加载状态提示 -->
+            <div id="loadingMessage" class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-2">正在加载分析结果...</p>
             </div>
-            <div class="card-body">
-                <div id="loadingMessage" class="text-center py-5">
-                    <div class="spinner-border text-light" role="status">
-                        <span class="visually-hidden">加载中...</span>
-                    </div>
-                    <p class="mt-2">正在加载分析结果...</p>
+            
+            <!-- 动态内容容器 -->
+            <div id="resultsContainer" style="display: none;">
+                <!-- PRS评分 -->
+                <div class="mb-4">
+                    <h4>PRS评分: <span id="prsScore"></span> (<span id="prsRisk"></span>)</h4>
                 </div>
-                <div id="resultsContainer" style="display: none;">
-                    <table class="table table-striped variant-table">
-                        <thead>
-                            <tr>
-                                <th>染色体</th>
-                                <th>位置</th>
-                                <th>参考碱基</th>
-                                <th>变异碱基</th>
-                                <th>RSID</th>
-                            </tr>
-                        </thead>
-                        <tbody id="resultsBody"></tbody>
-                    </table>
-                </div>
+                
+                <!-- ClinVar数据 -->
+                <div id="clinvarSection" class="mb-4"></div>
+                
+                <!-- 变体表格 -->
+                <table class="table table-striped variant-table">
+                    <thead>
+                        <tr>
+                            <th>染色体</th>
+                            <th>位置</th>
+                            <th>参考碱基</th>
+                            <th>变异碱基</th>
+                        </tr>
+                    </thead>
+                    <tbody id="variantTableBody"></tbody>
+                </table>
             </div>
+            
+            <!-- 错误提示 -->
+            <div id="errorMessage" class="alert alert-danger mt-3 d-none"></div>
         </div>
     </div>
+</div>
 
 <!-- PDF下载按钮 -->
 <div class="container mt-4" id="PDFdownload">
@@ -104,6 +117,6 @@
         <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- 自定义JS -->
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/results.js') }}"></script>
 </body>
 </html>

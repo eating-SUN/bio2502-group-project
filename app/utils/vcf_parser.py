@@ -1,17 +1,12 @@
-import cyvcf2 as vcf
+from cyvcf2 import VCF
 
-# parse vcf file
 def parse(file_path):
-    vcf_reader = vcf.Reader(filename=file_path)
+    vcf_reader = VCF(file_path) 
     variants = []
 
     for record in vcf_reader:
-        
         alt = ",".join(record.ALT)
-
-        # get genotype
         genotype = record.gt_bases[0] if record.gt_bases else "NA"
-        
         variant = {
             'chrom': record.CHROM,
             'pos': record.POS,

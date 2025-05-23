@@ -12,7 +12,7 @@ def query_clinvar(rsid):
 
 # Load gene to protein data
 def get_protein_sequence(rsid):
-    protein_df = pd.read_csv('data/gene_to_protein.csv')
+    protein_df = pd.read_csv('data/dbNSFP5/gene_to_protein.csv')
     match = protein_df[protein_df['rsid'] == rsid]
     if match.empty:
         return None
