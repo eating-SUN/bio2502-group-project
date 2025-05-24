@@ -1,19 +1,25 @@
 import subprocess
 import requests
 import re
+import os
 
 def run_vep(input_vcf, output_file):
     """
     调用 Ensembl VEP 对输入 VCF 文件进行注释，输出保存为 TSV 格式。
     """
+    # current_dir = os.path.dirname(os.path.abspath(__file__))
+    # project_root = os.path.abspath(os.path.join(current_dir, "..", ".."))
+    # vep_path = os.path.join(project_root, "ensembl-vep", "vep")
+    
     cmd = [
-        "vep",
+        "perl", "/home/zhangyixuan/course/bio2502/bio2502project/ensembl-vep/vep",
         "-i", input_vcf,
         "--cache",
         "--offline",
         "--assembly", "GRCh38",
         "--format", "vcf",
         "--symbol",
+        "--uniprot",
         "--hgvs",
         "--protein",
         "--vcf_info_field", "CSQ",
@@ -34,13 +40,13 @@ def parse_vep_output(vep_file):
             if line.startswith("#"):
                 continue
             fields = line.strip().split("\t")
-            if len(fields) < 6:
+            if len(fields) < 7:
                 continue
-            variant_id, symbol, feature, protein_pos, aa_change, hgvs_p = fields[:6]
+            variant_id, symbol, feature, protein_pos, aa_change, hgvs_p, uniprot_id = fields[:7]
             if hgvs_p.startswith("ENSP") or hgvs_p.startswith("p."):
                 variants.append({
                     "id": variant_id,
-                    "protein_id": feature,
+                    "protein_id": uniprot_id,
                     "hgvs_p": hgvs_p
                 })
     return variants
@@ -52,13 +58,17 @@ def get_uniprot_seq(uniprot_id):
     从 UniProt 获取蛋白质序列（FASTA格式），返回纯序列字符串。
     """
     url = f"https://rest.uniprot.org/uniprotkb/{uniprot_id}.fasta"
-    response = requests.get(url)
-    if response.status_code != 200:
-        print(f"Failed to fetch UniProt sequence for {uniprot_id}, status code: {response.status_code}")
+    try:
+        response = requests.get(url, timeout=10)
+        if response.status_code != 200:
+            print(f"Failed to fetch UniProt sequence for {uniprot_id}, status code: {response.status_code}")
+            return None
+        lines = response.text.splitlines()
+        seq = ''.join([line.strip() for line in lines if not line.startswith('>')])
+        return seq
+    except Exception as e:
+        print(f"[EXCEPTION] 获取 UniProt 序列失败: {uniprot_id}, 错误信息: {e}")
         return None
-    lines = response.text.splitlines()
-    seq = ''.join([line.strip() for line in lines if not line.startswith('>')])
-    return seq
 
 def parse_hgvs_protein(hgvs_p):
     """

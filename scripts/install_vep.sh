@@ -1,31 +1,36 @@
 #!/bin/bash
+set -e
 
-# 安装 VEP 脚本
-
-# 设置解压目录
+# VEP 版本（可以根据需要更改）
+VEP_VERSION="release/114"  
 VEP_DIR="ensembl-vep"
 
-# 检查是否已解压
-if [ -d "$VEP_DIR" ]; then
-  echo "VEP 已经存在于 $VEP_DIR，不再重复解压。"
-  exit 0
-fi
+echo "开始安装 Ensembl VEP..."
 
-# 解压 VEP 工具包
-echo "正在解压 ensembl-vep.tar.gz..."
-tar -xf ensembl-vep.tar.gz
-
-# 检查解压是否成功
-if [ -d "$VEP_DIR" ]; then
-  echo "解压成功：$VEP_DIR"
+# 1. 下载并解压 VEP
+if [ ! -d "$VEP_DIR" ]; then
+  echo "下载 VEP ${VEP_VERSION}..."
+  curl -L -o ensembl-vep.tar.gz "https://github.com/Ensembl/ensembl-vep/archive/${VEP_VERSION}.tar.gz"
+  tar -xzf ensembl-vep.tar.gz
+  mv "ensembl-vep-${VEP_VERSION#release/}" "$VEP_DIR"
+  rm ensembl-vep.tar.gz
 else
-  echo "解压失败，请检查 ensembl-vep.tar.gz 文件格式是否正确。"
-  exit 1
+  echo "检测到已有 $VEP_DIR 文件夹，跳过下载"
 fi
 
-# 进入 VEP 目录并运行 INSTALL.pl 安装依赖
-echo "正在初始化 VEP..."
-cd $VEP_DIR
-perl INSTALL.pl --AUTO ac --NO_TEST
+cd "$VEP_DIR"
 
-echo "VEP 安装完成。"
+# 2. 安装 Perl 依赖（需要有 cpanm 命令，若无需用户自行安装）
+echo "安装 Perl 依赖..."
+perl INSTALL.pl --AUTO c --NO_HTSLIB
+
+# 3. 安装缓存（人类 GRCh38 版本）
+echo "下载并安装缓存数据（homo_sapiens, GRCh38）..."
+perl INSTALL.pl --AUTO c --SPECIES homo_sapiens --ASSEMBLY GRCh38 --CACHEDIR ~/.vep
+
+echo "Ensembl VEP 安装完成！"
+
+echo "请确保你的环境变量 PATH 包含 VEP 目录，例如："
+echo "export PATH=\$PATH:$(pwd)"
+
+
