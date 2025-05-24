@@ -17,7 +17,7 @@ def run_vep(input_vcf, output_file):
         "--hgvs",
         "--protein",
         "--vcf_info_field", "CSQ",
-        "--fields", "SYMBOL,Feature,Protein_position,Amino_acids,HGVSp",
+        "--fields", "Uploaded_variation,SYMBOL,Feature,Protein_position,Amino_acids,HGVSp",
         "--tab",
         "-o", output_file
     ]
@@ -34,11 +34,12 @@ def parse_vep_output(vep_file):
             if line.startswith("#"):
                 continue
             fields = line.strip().split("\t")
-            if len(fields) < 5:
+            if len(fields) < 6:
                 continue
-            symbol, feature, protein_pos, aa_change, hgvs_p = fields[:5]
+            variant_id, symbol, feature, protein_pos, aa_change, hgvs_p = fields[:6]
             if hgvs_p.startswith("ENSP") or hgvs_p.startswith("p."):
                 variants.append({
+                    "id": variant_id,
                     "protein_id": feature,
                     "hgvs_p": hgvs_p
                 })
@@ -46,7 +47,6 @@ def parse_vep_output(vep_file):
 
 
 #  protein utils
-
 def get_uniprot_seq(uniprot_id):
     """
     从 UniProt 获取蛋白质序列（FASTA格式），返回纯序列字符串。
@@ -54,6 +54,7 @@ def get_uniprot_seq(uniprot_id):
     url = f"https://rest.uniprot.org/uniprotkb/{uniprot_id}.fasta"
     response = requests.get(url)
     if response.status_code != 200:
+        print(f"Failed to fetch UniProt sequence for {uniprot_id}, status code: {response.status_code}")
         return None
     lines = response.text.splitlines()
     seq = ''.join([line.strip() for line in lines if not line.startswith('>')])
@@ -70,6 +71,7 @@ def parse_hgvs_protein(hgvs_p):
               'Ter': '*'}
     
     # 匹配格式 p.Arg97Cys 或 p.Arg97Ter
+    hgvs_p = hgvs_p.replace("(", "").replace(")", "")
     match = re.match(r'p\.([A-Z][a-z]{2})(\d+)([A-Z][a-z]{2})', hgvs_p)
     if not match:
         return None, None, None
@@ -83,7 +85,7 @@ def mutate_sequence(seq, pos, alt_aa):
     返回发生突变后的序列。
     参数 pos 为 1-based 索引。
     """
-    if pos < 1 or pos > len(seq):
+    if alt_aa is None or pos < 1 or pos > len(seq):
         return None
     seq_list = list(seq)
     seq_list[pos - 1] = alt_aa

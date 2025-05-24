@@ -95,39 +95,40 @@ def process_vcf_background(task_id, file_path):
         
         
         # 1. parse vcf file
-        variants = vcf_parser.process_vcf(file_path) 
-        
+        variants = vcf_parser.process_vcf(file_path)  
         tasks[task_id]['progress'] = 30
 
         # 2. query ClinVar data
-        for variant in variants:
-            clinvar_data = variant_query.query_clinvar(variant['variant_info']['id'])
-            variant['clinvar_data'] = clinvar_data
+        for v in variants:
+            if 'variant_info' in v:
+                clinvar_data = variant_query.query_clinvar(v['variant_info']['id'])
+                v['clinvar_data'] = clinvar_data
 
         tasks[task_id]['progress'] = 40
 
         # 3. calculate protein features
-        for variant in variants:
-            if 'protein_id' in variant:
+        for v in variants:
+            if 'protein_info' in v and v['protein_info']:
                 pro_features = bio_features.calculate_protein_features(
-                    variant['protein_info']['wt_seq'], 
-                    variant['protein_info']['mut_seq']
+                    v['protein_info']['wt_seq'], 
+                    v['protein_info']['mut_seq']
                     )
-                variant['protein_features'] = pro_features
+                v['protein_features'] = pro_features
 
         tasks[task_id]['progress'] = 60
 
         # 5. query regulome score
-        for variant in variants:
-            chrom = variant['clinvar_data'].get('Chromosome')
-            start = variant['clinvar_data'].get('Start')
-            end = variant['clinvar_data'].get('Stop')
-            regulome_score = regulome.query_score({
-                'chrom': chrom, 
-                'start': start,
-                'end': end
-                })
-            variant['regulome_score'] = regulome_score
+        for v in variants:
+            if 'clinvar_data' in v:
+                chrom = v['clinvar_data'].get('Chromosome')
+                start = v['clinvar_data'].get('Start')
+                end = v['clinvar_data'].get('Stop')
+                regulome_score = regulome.query_score({
+                    'chrom': chrom, 
+                    'start': start,
+                    'end': end
+                    })
+                v['regulome_score'] = regulome_score
 
         tasks[task_id]['progress'] = 70
         
@@ -139,17 +140,18 @@ def process_vcf_background(task_id, file_path):
 
 
         # 7. save result
+        subset = variants[:100]
         tasks[task_id]['result'] = {
             'status': 'completed',
-            'variants': variants[:100],  # limit to 100 variants
+            'variants': subset,
             'summary': {
-                'variant_info': [v.get('variant_info') for v in variants[:100]],  # 示例变异信息列表
-                'protein_info': [v.get('protein_info') for v in variants[:100]],  # 示例蛋白质信息列表
-                'protein_features': [v.get('protein_features') for v in variants[:100]],  # 示例蛋白质特征列表
-                'regulome_scores': [v.get('regulome_score') for v in variants[:100]],  # 示例 Regulome 分数列表
+                'variant_info': [v.get('variant_info') for v in subset],
+                'protein_info': [v.get('protein_info') for v in subset],
+                'protein_features': [v.get('protein_features') for v in subset],
+                'regulome_scores': [v.get('regulome_score') for v in subset],
                 'prs_score': prs_score,
                 'prs_risk': prs_risk,
-                'clinvar_data': [v.get('clinvar_data') for v in variants[:100]]  # 示例 ClinVar 数据列表
+                'clinvar_data': [v.get('clinvar_data') for v in subset]
             }
         }
         tasks[task_id]['status'] = 'completed'
