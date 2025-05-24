@@ -7,3 +7,5 @@ test_files/*
 
 !.gitkeep
 
+ensembl-vep/
+ *.pyc

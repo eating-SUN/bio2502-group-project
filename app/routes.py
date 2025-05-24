@@ -93,30 +93,23 @@ def process_vcf_background(task_id, file_path):
         
         
         # 1. parse vcf file
-        variants = vcf_parser.parse(file_path) 
-        tasks[task_id]['variants'] = variants
-        tasks[task_id]['progress'] = 20
+        variants = vcf_parser.process_vcf(file_path) 
+        
+        tasks[task_id]['progress'] = 30
 
         # 2. query ClinVar data
         for variant in variants:
-            clinvar_data = variant_query.query_clinvar(variant['id'])
+            clinvar_data = variant_query.query_clinvar(variant['variant_info']['id'])
             variant['clinvar_data'] = clinvar_data
 
         tasks[task_id]['progress'] = 40
 
-        # 3. get protein sequence
+        # 3. calculate protein features
         for variant in variants:
-            protein_data = variant_query.get_protein_sequence(variant['id'])
-            variant['protein_data'] = protein_data
-
-        tasks[task_id]['progress'] = 50
-
-        # 4. calculate protein features
-        for variant in variants:
-            if 'protein_data' in variant:
+            if 'protein_id' in variant:
                 pro_features = bio_features.calculate_protein_features(
-                    variant['protein_data']['before'], 
-                    variant['protein_data']['after']
+                    variant['protein_info']['wt_seq'], 
+                    variant['protein_info']['mut_seq']
                     )
                 variant['protein_features'] = pro_features
 
@@ -144,29 +137,29 @@ def process_vcf_background(task_id, file_path):
 
 
         # 7. save result
-        sample_variant = variants[0] if variants else None
-        clinvar_data = variant_query.query_clinvar(sample_variant['id']) if sample_variant else None
-        
         tasks[task_id]['result'] = {
             'status': 'completed',
             'variants': variants[:100],  # limit to 100 variants
             'summary': {
-                'variant_id': sample_variant['id'] if sample_variant else None,
-                'protein_features': pro_features,
-                'regulome_score': regulome_score,
+                'variant_info': [v.get('variant_info') for v in variants[:100]],  # 示例变异信息列表
+                'protein_info': [v.get('protein_info') for v in variants[:100]],  # 示例蛋白质信息列表
+                'protein_features': [v.get('protein_features') for v in variants[:100]],  # 示例蛋白质特征列表
+                'regulome_scores': [v.get('regulome_score') for v in variants[:100]],  # 示例 Regulome 分数列表
                 'prs_score': prs_score,
                 'prs_risk': prs_risk,
-                'clinvar_data': clinvar_data
+                'clinvar_data': [v.get('clinvar_data') for v in variants[:100]]  # 示例 ClinVar 数据列表
             }
         }
         tasks[task_id]['status'] = 'completed'
         tasks[task_id]['progress'] = 100
-        
+    
     except Exception as e:
         print('分析任务异常:', e)
         traceback.print_exc()
         tasks[task_id]['status'] = 'failed'
+        tasks[task_id]['progress'] = 100
         tasks[task_id]['error'] = str(e)
+    
     finally:
         # clean uploaded file
         if os.path.exists(file_path):
