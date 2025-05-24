@@ -4,7 +4,7 @@ data/dbNSFP5/*
 data/prs/*
 data/regulome/*
 test_files/*
-
+htslib/*
 !.gitkeep
 
 ensembl-vep/
