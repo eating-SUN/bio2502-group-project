@@ -45,7 +45,7 @@ def process_vcf(vcf_path):
         if ref_aa is None or pos is None or alt_aa is None:
             continue
         mut_seq = mutate_sequence(seq, pos, alt_aa)
-        variant_data.append({'variant_info':{variant_info}})
+        variant_data.append({'variant_info':variant_info})
         variant_data.append({'protein_info':{
             'protein_id': v['protein_id'],
             'hgvs_p': v['hgvs_p'],

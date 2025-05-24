@@ -1,3 +1,15 @@
+// 页面跳转函数
+        function navigateTo(sectionId) {
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    document.querySelector(this.getAttribute('href')).scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                });
+            });
+        }
+
 /**
  * 处理VCF文件上传功能
  */
@@ -16,11 +28,10 @@ function upload_file() {
 
     // 准备表单数据
     const formData = new FormData();
-    formData.append('vcf_file', fileInput.files[0]);
+    formData.append('file', fileInput.files[0]);
 
     // 显示进度组件
     uploadProgress.classList.remove('d-none');
-    updateProgressIndeterminate();
     uploadError.classList.add('d-none');
 
     // 创建XMLHttpRequest实例
@@ -28,15 +39,14 @@ function upload_file() {
 
     // 处理请求完成
     xhr.onload = () => {
-        uploadProgress.classList.add('d-none');
-        if (xhr.status >= 200 && xhr.status < 300) {
-            // 上传成功，跳转页面或显示结果
-            console.log('文件上传成功');
-            window.location.href = 'results.html';
-        } else {
-            showError(uploadError, `上传失败，状态码：${xhr.status}`);
-        }
-    };
+    if (xhr.status >= 200 && xhr.status < 300) {
+        const response = JSON.parse(xhr.responseText);
+        const taskId = response.task_id;
+        checkTaskStatus(taskId); // 开始轮询进度
+    } else {
+        showError(uploadError, `上传失败，状态码：${xhr.status}`);
+    }
+};
 
     // 处理网络错误
     xhr.onerror = () => {
@@ -45,27 +55,12 @@ function upload_file() {
     };
 
     // 配置请求
-    xhr.open('POST', '/api/upload', true);
+    xhr.open('POST', 'upload', true);
 
     // 发送请求
     xhr.send(formData);
 }
 
-
-/**
- * 更新上传进度条（适用于任务状态未知的情况）
- */
-function updateProgressIndeterminate() {
-    const progressBar = document.getElementById('progressBar');
-    const progressText = document.getElementById('progressText');
-    
-    // 设置为不定长进度条
-    progressBar.classList.add('progress-bar-indeterminate');
-    progressText.textContent = '任务进行中...';
-    
-    // 添加动画效果
-    progressBar.classList.add('progress-bar-animated', 'progress-bar-striped');
-}
 
 
 
@@ -194,27 +189,39 @@ function showResults(results) {
  * 轮询获取结果
  */
 function checkTaskStatus(taskId) {
-  const interval = setInterval(async () => {
-    try {
-      const response = await fetch(`/status/${taskId}`);
-      const data = await response.json();
-      
-      if (data.status === 'completed') {
-        clearInterval(interval);
-        showResults(data.result);
-        
-        // 显示浏览器通知
-        if (Notification.permission === 'granted') {
-          new Notification('Analysis Complete', {
-            body: 'Your variant analysis is ready!'
-          });
+    const uploadProgress = document.getElementById('uploadProgress');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    uploadProgress.classList.remove('d-none');
+
+    const interval = setInterval(async () => {
+        try {
+            const response = await fetch(`/status/${taskId}`);
+            const data = await response.json();
+
+            // 更新进度条
+            if (typeof data.progress === 'number') {
+                progressBar.style.width = `${data.progress}%`;
+                progressText.textContent = `${data.progress}%`;
+                progressBar.classList.remove('progress-bar-indeterminate');
+            }
+
+            if (data.status === 'completed') {
+                clearInterval(interval);
+                uploadProgress.classList.add('d-none');
+                showResults(data.result);
+                // 可选：显示通知
+            } else if (data.status === 'failed') {
+                clearInterval(interval);
+                uploadProgress.classList.add('d-none');
+                showError(document.getElementById('uploadError'), '分析失败，请重试');
+            }
+        } catch (error) {
+            clearInterval(interval);
+            uploadProgress.classList.add('d-none');
+            showError(document.getElementById('uploadError'), '网络错误，请重试');
         }
-      }
-    } catch (error) {
-      console.error('Error checking status:', error);
-      clearInterval(interval);
-    }
-  }, 2000); // 每2秒查询一次
+    }, 2000); // 每2秒查询一次
 }
 
 document.addEventListener('DOMContentLoaded', () => {

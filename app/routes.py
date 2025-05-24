@@ -3,6 +3,7 @@ from app.utils import vcf_parser, variant_query, bio_features, regulome, prs
 import uuid
 import threading
 import os
+import traceback
 
 main = Blueprint('main', __name__)
 
@@ -17,6 +18,10 @@ def index():
 @main.route('/upload', methods=['GET'])
 def upload_page():
     return render_template('upload.html')
+
+@main.route('/results', methods=['GET'])
+def results_page():
+    return render_template('results.html')
 
 # upload file
 @main.route('/upload', methods=['POST'])
@@ -52,7 +57,7 @@ def upload_file():
     return jsonify({'status': 'queued', 'task_id': task_id}), 202
 
 
-@main.route('/task/<task_id>', methods=['GET'])
+@main.route('/status/<task_id>', methods=['GET'])
 def get_task_status(task_id):
     task = tasks.get(task_id)
     if not task:
@@ -65,28 +70,15 @@ def get_task_status(task_id):
     
     if task['status'] == 'completed':
         response['result'] = task.get('result')
-       
+    
     return jsonify(response)
 
 
 @main.route('/results', methods=['GET'])
 def results():
     task_id = request.args.get('task_id')
-    task = tasks.get(task_id)
-    
-    if not task or task['status'] != 'completed':
-        return "Task not completed or not found", 404
-
-    result = task['result']['summary']
-    
     return render_template(
-        'results.html',
-        variant_id=result.get('sample_variant', {}).get('id', 'N/A'),
-        clinvar_data=result.get('clinvar_data'),
-        pro_features=result.get('protein_features'),
-        regulome_score=result.get('regulome_score', 'N/A'),
-        prs_score=result.get('prs_score'),
-        prs_risk=result.get('prs_risk')
+        'results.html'
     )
 
 
@@ -98,7 +90,7 @@ def process_vcf_background(task_id, file_path):
     try:
         tasks[task_id]['status'] = 'parsing'
         tasks[task_id]['progress'] = 10
-        tasks[task_id]['variants'] = variants
+        
         
         # 1. parse vcf file
         variants = vcf_parser.process_vcf(file_path) 
@@ -130,7 +122,7 @@ def process_vcf_background(task_id, file_path):
             end = variant['clinvar_data'].get('Stop')
             regulome_score = regulome.query_score({
                 'chrom': chrom, 
-               'start': start,
+                'start': start,
                 'end': end
                 })
             variant['regulome_score'] = regulome_score
@@ -162,6 +154,8 @@ def process_vcf_background(task_id, file_path):
         tasks[task_id]['progress'] = 100
     
     except Exception as e:
+        print('分析任务异常:', e)
+        traceback.print_exc()
         tasks[task_id]['status'] = 'failed'
         tasks[task_id]['progress'] = 100
         tasks[task_id]['error'] = str(e)
