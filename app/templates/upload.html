@@ -126,27 +126,27 @@
 
 <div class="container mt-4">
         <!-- 文件上传区 -->
-        <div class="card card-spacing form-section">
+                <div class="card card-spacing form-section">
             <div class="card-header bg-info text-white">上传VCF文件</div>
             <div class="card-body">
                 <div id="uploadForm">
-                    <form id="vcfUploadForm">
-                    <input type="file" id="vcfFile" class="form-control mb-3" accept=".vcf">
-                    
-                    <div id="uploadProgress" class="progress-container d-none">
-                        <div id="progressBar" class="progress-bar progress-bar-striped" role="progressbar" style="width: 0%"></div>
-                        <div class="progress-text" id="progressText">0%</div>
-                    </div>
-                    <div id="uploadSuccess" class="alert alert-success d-none mt-2"></div>
-                    <div id="loadingMessage" class="alert alert-danger d-none mt-2"></div>
+                    <form id="vcfUploadForm" onsubmit="upload_file(event)"> 
+                        <input type="file" id="vcfFile" class="form-control mb-3" accept=".vcf">
+                        
+                        <div id="uploadProgress" class="progress-container d-none">
+                            <div id="progressBar" class="progress-bar progress-bar-striped" role="progressbar" style="width: 0%"></div>
+                            <div class="progress-text" id="progressText">0%</div>
+                        </div>
+                        <div id="uploadSuccess" class="alert alert-success d-none mt-2"></div>
+                        <div id="loadingMessage" class="alert alert-danger d-none mt-2"></div>
 
-                    <div class="d-flex justify-content-between align-items-center">
-                        <button onclick="upload_file()" class="btn btn-primary">提交分析</button>
-                        <button type="reset" class="btn btn-secondary">重置</button>
-                    </div>
-                    
-                    <div id="uploadError" class="alert alert-danger d-none mt-2"></div>
-                </form>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <button type="submit" class="btn btn-primary">提交分析</button> 
+                            <button type="reset" class="btn btn-secondary">重置</button>
+                        </div>
+                        
+                        <div id="uploadError" class="alert alert-danger d-none mt-2"></div>
+                    </form>
                 </div>
             </div>
         </div>

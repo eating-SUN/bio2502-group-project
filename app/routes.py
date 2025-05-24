@@ -62,6 +62,8 @@ def get_task_status(task_id):
     task = tasks.get(task_id)
     if not task:
         return jsonify({'error': 'Invalid task ID'}), 404
+    if task['status'] == 'failed':
+        return jsonify({'status': 'failed', 'error_message': task.get('error_message')}), 500
     
     response = {
         'status': task['status'],
@@ -70,7 +72,7 @@ def get_task_status(task_id):
     
     if task['status'] == 'completed':
         response['result'] = task.get('result')
-    
+        
     return jsonify(response)
 
 
@@ -158,7 +160,7 @@ def process_vcf_background(task_id, file_path):
         traceback.print_exc()
         tasks[task_id]['status'] = 'failed'
         tasks[task_id]['progress'] = 100
-        tasks[task_id]['error'] = str(e)
+        tasks[task_id]['error_message'] = str(e)
     
     finally:
         # clean uploaded file
