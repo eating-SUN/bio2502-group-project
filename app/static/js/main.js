@@ -13,7 +13,8 @@
 /**
  * 处理VCF文件上传功能
  */
-function upload_file() {
+function upload_file(event) {
+    event.preventDefault();
     const fileInput = document.getElementById('vcfFile');
     const uploadProgress = document.getElementById('uploadProgress');
     const progressBar = document.getElementById('progressBar');
@@ -198,6 +199,7 @@ function checkTaskStatus(taskId) {
         try {
             const response = await fetch(`/status/${taskId}`);
             const data = await response.json();
+            console.log('Task status response:', data);
 
             // 更新进度条
             if (typeof data.progress === 'number') {
@@ -210,11 +212,11 @@ function checkTaskStatus(taskId) {
                 clearInterval(interval);
                 uploadProgress.classList.add('d-none');
                 showResults(data.result);
-                // 可选：显示通知
+                // 显示通知
             } else if (data.status === 'failed') {
                 clearInterval(interval);
                 uploadProgress.classList.add('d-none');
-                showError(document.getElementById('uploadError'), '分析失败，请重试');
+                showError(document.getElementById('uploadError'),'分析失败');
             }
         } catch (error) {
             clearInterval(interval);
