@@ -5,3 +5,4 @@ data/prs/*
 data/regulome/*
 !.gitkeep
 
+ensembl-vep/
