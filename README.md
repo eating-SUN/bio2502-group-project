@@ -42,9 +42,10 @@ bash scripts/install_vep.sh
    ```bash
    curl -O ftp://ftp.ensembl.org/pub/release-114/fasta/homo_sapiens/dna_index/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz
    gunzip Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz
+   mv Homo_sapiens.GRCh38.dna.primary_assembly.fa data/GRCh38/
    ```
 
-   你可以将解压后的 `.fa` 文件放在任意位置，但在运行 VEP 时需通过 `--fasta` 参数提供路径。
+   该命令会将解压后的 `.fa` 文件放在 `data/GRCh38/` 目录下。
 
 ### 运行说明
 
