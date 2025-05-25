@@ -20,18 +20,45 @@ bash scripts/install_vep.sh
 
 > 脚本会在项目根目录解压 `ensembl-vep` 文件夹，并完成基本配置。
 
+### 本地缓存与参考基因组配置
+
+为了支持离线注释和 HGVS 格式输出，**你还需要手动下载以下数据文件**：
+
+1. **VEP 缓存数据库**（适用于 GRCh38）：
+
+   ```bash
+   curl -O ftp://ftp.ensembl.org/pub/release-114/variation/indexed_vep_cache/homo_sapiens_vep_114_GRCh38.tar.gz
+   ```
+
+   解压后将生成 `.vep` 缓存目录，可移动至项目根目录：
+
+   ```bash
+   mkdir -p ~/.vep
+   tar -xzf homo_sapiens_vep_114_GRCh38.tar.gz -C ~/.vep
+   ```
+
+2. **参考基因组 FASTA 文件**（用于生成 HGVS 表达式）：
+
+   ```bash
+   curl -O ftp://ftp.ensembl.org/pub/release-114/fasta/homo_sapiens/dna_index/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz
+   gunzip Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz
+   mv Homo_sapiens.GRCh38.dna.primary_assembly.fa data/GRCh38/
+   ```
+
+   该命令会将解压后的 `.fa` 文件放在 `data/GRCh38/` 目录下。
+
 ### 运行说明
 
-* **项目目录结构要求**：`ensembl-vep` 文件夹必须位于项目根目录，与 `app/` 文件夹同级。
-* 程序调用 VEP 时，会使用相对路径 `./ensembl-vep/vep` 来执行 VEP 脚本，无需你手动配置路径。
-
+* **项目目录结构要求**：`ensembl-vep` 文件夹应位于项目根目录，与 `app/` 文件夹同级。
+* 程序默认通过路径 `./ensembl-vep/vep` 调用 VEP 脚本。
+* `.vep` 缓存目录默认为项目根目录下的 `.vep/`，如有更改请在 `run_vep()` 函数中修改 `--dir_cache` 参数。
+* FASTA 文件路径通过 `--fasta` 参数传入，确保该路径正确指向解压后的 `.fa` 文件。
 
 ### 注意事项
 
-* 请确保你已安装 Perl 及 VEP 依赖环境（具体请参照 VEP 官方文档）。
-* 如果你需要将 `ensembl-vep` 放置在其他位置，请修改 `app/utils/vcf_parser.py` 中的 `run_vep` 函数，将 VEP 脚本路径改为对应绝对路径或通过环境变量传入。
-
-
+* 请确保你已安装 Perl 及 VEP 所需依赖（详见 [VEP 官方文档](https://www.ensembl.org/info/docs/tools/vep/script/vep_download.html)）。
+* 若将 `ensembl-vep` 文件夹或 `.vep` 缓存移动至其他位置，请相应更新 `app/utils/gene_to_protein.py` 中的路径设置。
+* 建议将 `.vep/` 缓存目录和 `.fa` 文件加入 `.gitignore`，以避免上传至 Git 仓库。
 
 
 

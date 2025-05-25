@@ -9,10 +9,11 @@
 ##INFO=<ID=SVLEN,Number=1,Type=Integer,Description="Difference in length between REF and ALT alleles">
 ##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of structural variant">
 ##INFO=<ID=NTLEN,Number=.,Type=Integer,Description="Number of bases inserted in place of deleted code">
-##FORMAT=<ID=PL,Number=3,Type=Integer,Description="Normalized, Phred-scaled likelihoods for genotypes as defined in the VCF specification">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Normalized, Phred-scaled likelihoods for genotypes as defined in the VCF specification">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 ##FORMAT=<ID=RD,Number=1,Type=Integer,Description="Reference depth, how many reads support the reference">
 ##FORMAT=<ID=AD,Number=2,Type=Integer,Description="Allele depth, how many reads support this allele">
+##contig=<ID=chr1,length=248956422>
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	HG00096.final.cram
 chr1	15903	.	G	GC	.	PASS	END=15903;HOMLEN=2;HOMSEQ=CC;SVLEN=1;SVTYPE=INS	GT:AD	1/1:0,12
 chr1	20095	.	AAACAG	AC	.	PASS	END=20100;HOMLEN=0;SVLEN=-5;SVTYPE=RPL;NTLEN=1	GT:AD	0/1:5,10
