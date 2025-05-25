@@ -64,7 +64,10 @@ function upload_file(event) {
     xhr.open('POST', 'upload', true);
 
     // 发送请求
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
     xhr.send(formData);
+
 }
 
 
