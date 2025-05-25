@@ -27,9 +27,14 @@ function upload_file(event) {
         return;
     }
 
-    // 准备表单数据
-    const formData = new FormData();
-    formData.append('file', fileInput.files[0]);
+    const file = fileInput.files[0];
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 最大允许上传的文件大小（例如：10MB）
+
+    // 检查文件大小
+    if (file.size > MAX_FILE_SIZE) {
+        showError(uploadError, `文件大小不能超过 ${MAX_FILE_SIZE / (1024 * 1024)} MB`);
+        return;
+    }
 
     // 显示进度组件
     uploadProgress.classList.remove('d-none');

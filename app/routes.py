@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, render_template
-from app.utils import vcf_parser, variant_query, bio_features, regulome, prs
+from app.utils import vcf_parser, variant_query, regulome, prs#bio_features, 
 import uuid
 import threading
 import os
@@ -72,7 +72,7 @@ def get_task_status(task_id):
     
     if task['status'] == 'completed':
         response['result'] = task.get('result')
-        
+
     return jsonify(response)
 
 

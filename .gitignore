@@ -17,4 +17,5 @@ test_files/*
 
 ensembl-vep/
 *.pyc
+__pycache__/
 
