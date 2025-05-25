@@ -67,6 +67,7 @@ function upload_file(event) {
     const formData = new FormData();
     formData.append('file', fileInput.files[0]);
     xhr.send(formData);
+
 }
 
 
@@ -214,13 +215,19 @@ function checkTaskStatus(taskId) {
                 progressText.textContent = `${data.progress}%`;
                 progressBar.classList.remove('progress-bar-indeterminate');
             }
-
-            if (data.status === 'completed') {
-                clearInterval(interval);
-                uploadProgress.classList.add('d-none');
-                showResults(data.result);
+                
                 // 显示通知
-            } else if (data.status === 'failed') {
+            if (data.status === 'completed') {
+                if (data.result?.variants?.length > 0) {
+                    clearInterval(interval);
+                    uploadProgress.classList.add('d-none');
+                    showResults(data.result);       
+                    } 
+                else {
+                    showError(document.getElementById('uploadError'), '分析完成，但未检测到有效变异。请检查文件格式。');
+                }
+            }
+            else if (data.status === 'failed') {
                 clearInterval(interval);
                 uploadProgress.classList.add('d-none');
                 showError(document.getElementById('uploadError'),'分析失败');

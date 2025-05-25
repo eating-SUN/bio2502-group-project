@@ -14,16 +14,16 @@ def run_vep(input_vcf, output_file):
     print("[DEBUG] 输出文件名:", output_name)
 
     cmd = [
-        "perl", "/home/zhangyixuan/course/bio2502/bio2502project/ensembl-vep/vep",
+        "perl", "/mnt/c/Users/10188/bio2502project/app/ensembl-vep/vep",
         "-i", input_vcf,
         "--cache",
         "--offline",
-        "--dir_cache", "/home/zhangyixuan/course/bio2502/bio2502project/.vep",
+        "--dir_cache", "/mnt/c/Users/10188/bio2502project/.vep",
         "--assembly", "GRCh38",
         "--format", "vcf",
         "--symbol",
         "--uniprot",
-        "--fasta", "/home/zhangyixuan/course/bio2502/bio2502project/data/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
+        "--fasta", "/mnt/c/Users/10188/bio2502project/data/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
         "--hgvs",
         "--protein",
         "--no_stats",

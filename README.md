@@ -36,7 +36,16 @@ bash scripts/install_vep.sh
    mkdir -p ~/.vep
    tar -xzf homo_sapiens_vep_114_GRCh38.tar.gz -C ~/.vep
    ```
+   * 注：可使用多线程下载工具加速下载，如aria2：
 
+   ```bash
+   # 安装 aria2（如未安装）
+   # Ubuntu/Debian: sudo apt install aria2
+   # macOS: brew install aria2
+
+   # 使用 16 线程下载
+   aria2c -s 16 -x 16 "ftp://ftp.ensembl.org/pub/release-114/variation/indexed_vep_cache/homo_sapiens_vep_114_GRCh38.tar.gz"
+   ```
 2. **参考基因组 FASTA 文件**（用于生成 HGVS 表达式）：
 
    ```bash
