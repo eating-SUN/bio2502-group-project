@@ -13,9 +13,8 @@ test_files/*
 *.fasta
 *.fasta.*
 
-
 !.gitkeep
 
 ensembl-vep/
- *.pyc
+*.pyc
 
