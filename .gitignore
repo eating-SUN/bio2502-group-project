@@ -1,11 +1,21 @@
 # Ignore large data files
 data/clinvar/*
-data/dbNSFP5/*
 data/prs/*
 data/regulome/*
 test_files/*
+
+# 忽略 VEP 缓存目录
+.vep/
+
+# 忽略参考基因组FASTA文件及其索引
+*.fa
+*.fa.*
+*.fasta
+*.fasta.*
+
 
 !.gitkeep
 
 ensembl-vep/
  *.pyc
+

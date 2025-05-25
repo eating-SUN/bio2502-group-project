@@ -12,22 +12,33 @@ def run_vep(input_vcf, output_file):
     # vep_path = os.path.join(project_root, "ensembl-vep", "vep")
     
     cmd = [
-        "perl", "/home/zhangyixuan/course/bio2502/bio2502project/ensembl-vep/vep",
+        "perl", "./ensembl-vep/vep",
         "-i", input_vcf,
         "--cache",
         "--offline",
+        "--dir_cache", "./.vep",
         "--assembly", "GRCh38",
         "--format", "vcf",
         "--symbol",
         "--uniprot",
+        "--fasta", "./data/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
         "--hgvs",
         "--protein",
         "--vcf_info_field", "CSQ",
         "--fields", "Uploaded_variation,SYMBOL,Feature,Protein_position,Amino_acids,HGVSp",
         "--tab",
+        "--verbose",
         "-o", output_file
     ]
-    subprocess.run(cmd, check=True)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        print("[VEP stdout]:\n", result.stdout)
+        print("[VEP stderr]:\n", result.stderr)
+    except subprocess.CalledProcessError as e:
+        print("[ERROR] VEP运行失败，退出码：", e.returncode)
+        print("[VEP stdout]:\n", e.stdout)
+        print("[VEP stderr]:\n", e.stderr)
+        raise 
 
 def parse_vep_output(vep_file):
     """
