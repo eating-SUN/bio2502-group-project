@@ -135,14 +135,17 @@ def process_vcf_background(task_id, file_path):
         # Step 3: 计算蛋白理化性质
         try:
             print(f"[INFO][{task_id}] 计算蛋白理化性质中...")
-            for v in variants:
+            for i, v in enumerate(variants):
                 if 'protein_info' in v and v['protein_info']:
+                    print(f"[DEBUG][{task_id}] 第 {i+1} 个变异涉及蛋白，开始计算理化性质")
                     pro_features = bio_features.calculate_protein_features(
                         v['protein_info']['wt_seq'],
                         v['protein_info']['mut_seq']
                     )
                     v['protein_features'] = pro_features
-            tasks[task_id]['progress'] = 60
+                else:
+                    print(f"[DEBUG][{task_id}] 第 {i+1} 个变异无蛋白信息，跳过蛋白性质计算")
+
         except Exception as e:
             print(f"[WARNING][{task_id}] 蛋白性质计算失败: {e}")
 
@@ -155,6 +158,7 @@ def process_vcf_background(task_id, file_path):
                     start = v['clinvar_data'].get('Start')
                     end = v['clinvar_data'].get('Stop')
                     if chrom and start and end:
+                        print(f"[DEBUG][{task_id}] 查询 RegulomeDB: {chrom}:{start}-{end}")
                         regulome_score = regulome.query_score({
                             'chrom': chrom,
                             'start': start,
