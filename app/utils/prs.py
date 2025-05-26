@@ -2,39 +2,49 @@ import pandas as pd
 
 _seen_prs_unmatched = set()
 
-def compute_prs(variants):
+def compute_prs(variants, verbose=True):
     print(f"[INFO][compute_prs] 开始读取PRS数据文件...")
     prs_df = pd.read_csv("data/prs/pgs000001.csv")
     print(f"[INFO][compute_prs] 成功读取PRS数据文件，数据行数: {len(prs_df)}")
 
-    print(f"[INFO][compute_prs] 开始清理数据，删除包含缺失值的行...")
     prs_df = prs_df.dropna(subset=['rsID', 'effect_allele', 'effect_weight'])
-    print(f"[INFO][compute_prs] 清理完成后，数据行数: {len(prs_df)}")
+    print(f"[INFO][compute_prs] 清理完成后，保留有效行数: {len(prs_df)}")
 
     score = 0.0
     matched_snps = 0
-    variant_dict = {v['id']: v for v in variants}
-    print(f"[INFO][compute_prs] 变异信息已转换为字典，变异数量: {len(variant_dict)}")
 
-    print(f"[INFO][compute_prs] 开始匹配PRS位点与变异信息...")
+    # 构建字典，统一 rsID 格式
+    variant_dict = {}
+    for v in variants:
+        var_id = v['variant_info']['id']
+        if var_id.startswith('rs'):
+            var_id = var_id[2:]
+        variant_dict[var_id] = v['variant_info']
+
+    print(f"[INFO][compute_prs] 变异信息已转换为字典，标准化后数量: {len(variant_dict)}")
+
+    print(f"[INFO][compute_prs] 开始匹配PRS位点与样本变异...")
     for _, row in prs_df.iterrows():
-        rsid = row['rsID']
+        rsid = str(row['rsID']).lstrip('rs')
         effect_allele = row['effect_allele']
         weight = row['effect_weight']
-        print(f"[DEBUG][compute_prs] 正在处理 rsID = {rsid}, effect_allele = {effect_allele}, effect_weight = {weight}")
 
         if rsid in variant_dict:
-            genotype = variant_dict[rsid]['genotype']
+            genotype = variant_dict[rsid].get('genotype', '')
+            if not genotype:
+                if verbose:
+                    print(f"[WARNING][compute_prs] 变异 rs{rsid} 缺失基因型信息")
+                continue
             dosage = genotype.count(effect_allele)
             score += dosage * weight
             matched_snps += 1
-            print(f"[DEBUG][compute_prs] 匹配成功，变异 rsID = {rsid}, 剂型 = {genotype}, 剂量 = {dosage}, 得分 = {score}")
+            if verbose:
+                print(f"[DEBUG][compute_prs] 匹配成功: rs{rsid}, 基因型 = {genotype}, 剂量 = {dosage}, 当前得分 = {score:.4f}")
         else:
             if rsid not in _seen_prs_unmatched:
-                print(f"[WARNING][compute_prs] 未找到 rsID = {rsid} 的变异信息，跳过")
+                if verbose:
+                    print(f"[WARNING][compute_prs] 未找到 rs{rsid} 的变异信息")
                 _seen_prs_unmatched.add(rsid)
-            else:
-                print(f"[DEBUG][compute_prs] rsID = {rsid} 的变异信息之前已跳过，继续跳过")
 
     print(f"[INFO][compute_prs] 共匹配到 {matched_snps} 个PRS位点，总得分为 {score:.4f}")
     return round(score, 4), matched_snps

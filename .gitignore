@@ -13,6 +13,9 @@ test_files/*
 *.fasta
 *.fasta.*
 
+# 忽略其他临时文件
+to_csv.py
+
 !.gitkeep
 
 ensembl-vep/

@@ -124,13 +124,23 @@ def process_vcf_background(task_id, file_path):
         # Step 2: 查询 ClinVar 数据
         try:
             print(f"[INFO][{task_id}] 查询 ClinVar 数据中...")
+            unmatched_count = 0
             for v in variants:
                 if 'variant_info' in v:
-                    clinvar_data = variant_query.query_clinvar(v['variant_info']['id'])
+                    clinvar_data = variant_query.query_clinvar(v['variant_info']['id'], quiet=True)
                     v['clinvar_data'] = clinvar_data
+                    if clinvar_data.get('clinvar') is None:
+                        unmatched_count += 1
+
+            if unmatched_count == len(variants):
+                print(f"[INFO][{task_id}] ClinVar 查询完成，但所有变异都未匹配上 ({unmatched_count}/{len(variants)})")
+            elif unmatched_count > 0:
+                print(f"[INFO][{task_id}] ClinVar 查询完成，有部分变异未匹配上 ({unmatched_count}/{len(variants)})")
+
             tasks[task_id]['progress'] = 40
         except Exception as e:
             print(f"[WARNING][{task_id}] ClinVar 查询失败: {e}")
+
 
         # Step 3: 计算蛋白理化性质
         try:
