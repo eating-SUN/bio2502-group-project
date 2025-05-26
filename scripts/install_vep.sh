@@ -24,15 +24,15 @@ cd "$VEP_DIR"
 # 2. 安装 Perl 依赖（需要有 cpanm 命令，若无需用户自行安装）
   #还可能需要安装gcc、make、DBI、DBD::mysql、htslib
 echo "安装 Perl 依赖..."
-#perl INSTALL.pl --AUTO c --NO_HTSLIB
+perl INSTALL.pl --AUTO c --NO_HTSLIB
 
-# 3. 安装缓存（人类 GRCh38 版本）
-echo "下载并安装缓存数据（homo_sapiens, GRCh38）..."
-perl INSTALL.pl --AUTO c --SPECIES homo_sapiens --ASSEMBLY GRCh38 --CACHEDIR ~/.vep
+# # 3. 安装缓存（人类 GRCh38 版本）
+# echo "下载并安装缓存数据（homo_sapiens, GRCh38）..."
+# perl INSTALL.pl --AUTO c --SPECIES homo_sapiens --ASSEMBLY GRCh38 --CACHEDIR ~/.vep
 
 echo "Ensembl VEP 安装完成！"
 
-echo "请确保你的环境变量 PATH 包含 VEP 目录，例如："
-echo "export PATH=\$PATH:$(pwd)"
+# echo "请确保你的环境变量 PATH 包含 VEP 目录，例如："
+# echo "export PATH=\$PATH:$(pwd)"
 
 

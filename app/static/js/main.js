@@ -1,14 +1,18 @@
-// 页面跳转函数
-        function navigateTo(sectionId) {
-            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-                anchor.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    document.querySelector(this.getAttribute('href')).scrollIntoView({
-                        behavior: 'smooth'
-                    });
+// 仅处理纯锚点跳转（无路径前缀）
+function navigateTo() {
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        const href = anchor.getAttribute('href');
+        // 仅拦截纯锚点（如 href="#section"），排除带路径的锚点（如 href="/upload#section"）
+        if (href.startsWith('#') && href.length > 1) {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(href).scrollIntoView({
+                    behavior: 'smooth'
                 });
             });
         }
+    });
+}
 
 /**
  * 处理VCF文件上传功能
@@ -161,38 +165,6 @@ function clearInput() {
     document.getElementById('rsid-input').value = '';
 }
 
-/**
- * 显示分析结果
- * @param {Array} results 变异记录数组
- */
-function showResults(results) {
-    // 解析并显示结果
-    const variants = results;
-    const resultsBody = document.getElementById('resultsBody');
-    
-    // 清空之前的表格数据
-    resultsBody.innerHTML = '';
-
-    // 填充表格数据
-    variants.forEach(variant => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${variant.chrom}</td>
-            <td>${variant.pos}</td>
-            <td>${variant.ref}</td>
-            <td>${variant.alt}</td>
-            <td>${variant.rsid || '-'}</td>
-        `;
-        resultsBody.appendChild(row);
-    });
-
-    // 显示结果容器
-    document.getElementById('loadingMessage').style.display = 'none';
-    document.getElementById('resultsContainer').style.display = 'block';
-
-    // 存储结果到 sessionStorage
-    sessionStorage.setItem('vcfResults', JSON.stringify(results));
-}
 
 /**
  * 轮询获取结果
@@ -221,7 +193,7 @@ function checkTaskStatus(taskId) {
                 if (data.result?.variants?.length > 0) {
                     clearInterval(interval);
                     uploadProgress.classList.add('d-none');
-                    showResults(data.result);       
+                    storeResults(data.result);       
                     } 
                 else {
                     showError(document.getElementById('uploadError'), '分析完成，但未检测到有效变异。请检查文件格式。');
@@ -240,19 +212,14 @@ function checkTaskStatus(taskId) {
     }, 2000); // 每2秒查询一次
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    // 检查是否有存储的结果
-    const storedResults = sessionStorage.getItem('vcfResults');
-
-    if (storedResults) {
-        const results = JSON.parse(storedResults);
-        showResults(results);
-    } else {
-        // 如果没有存储的结果，显示加载错误消息
-        document.getElementById('loadingMessage').innerHTML = `
-            <div class="alert alert-danger">
-                未找到分析结果，请<a href="upload.html">重新上传</a>
-            </div>
-        `;
-    }
-});
+/**
+ * 存储分析结果到sessionStorage
+ * @param {Array} results 
+ */
+function storeResults(results) {
+    // 仅存储结果到 sessionStorage
+    sessionStorage.setItem('vcfResults', JSON.stringify(results));
+    
+    // 自动跳转到结果页面
+    window.location.href = '/results';
+}
