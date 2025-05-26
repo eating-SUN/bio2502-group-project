@@ -135,6 +135,7 @@ def process_vcf_background(task_id, file_path):
         # Step 3: 计算蛋白理化性质
         try:
             print(f"[INFO][{task_id}] 计算蛋白理化性质中...")
+            no_protein_info_count = 0
             for i, v in enumerate(variants):
                 if 'protein_info' in v and v['protein_info']:
                     print(f"[DEBUG][{task_id}] 第 {i+1} 个变异涉及蛋白，开始计算理化性质")
@@ -144,7 +145,10 @@ def process_vcf_background(task_id, file_path):
                     )
                     v['protein_features'] = pro_features
                 else:
-                    print(f"[DEBUG][{task_id}] 第 {i+1} 个变异无蛋白信息，跳过蛋白性质计算")
+                    no_protein_info_count += 1
+
+            if no_protein_info_count > 0:
+                print(f"[DEBUG][{task_id}] {no_protein_info_count} 个变异无蛋白信息，跳过蛋白性质计算")
 
         except Exception as e:
             print(f"[WARNING][{task_id}] 蛋白性质计算失败: {e}")

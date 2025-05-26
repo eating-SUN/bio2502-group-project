@@ -16,7 +16,7 @@ def process_vcf(vcf_path):
         if not vcf_records:
             print("[WARNING] VCF 文件中无变异记录")
             print(f"[DEBUG] VCF文件路径: {vcf_path}")
-            print(f"[DEBUG] 文件头部示例: {str(vcf_reader.raw_header[:200])}")  # 输出部分头部信息
+            print(f"[DEBUG] 文件头部示例: {str(vcf_reader.raw_header[:20])}")  # 输出部分头部信息
             return []
 
         # 建立 VCF 记录字典
@@ -81,7 +81,7 @@ def process_vcf(vcf_path):
             if not mut_seq:
                 print(f"[WARNING] 突变序列生成失败: pos={pos}, alt_aa={alt_aa}")
                 continue
-            
+
             print(f"[DEBUG] 序列突变成功: {ref_aa}{pos}{alt_aa} @ {protein_id}")
 
             protein_info_dict[var_id] = {
