@@ -20,8 +20,20 @@ def upload_page():
     return render_template('upload.html')
 
 @main.route('/results', methods=['GET'])
-def results_page():
-    return render_template('results.html')
+def results():
+    task_id = request.args.get('task_id')
+    if not task_id:
+        return "缺少任务ID参数", 400
+
+    task = tasks.get(task_id)
+    if not task or 'result' not in task:
+        return "任务ID无效或结果未生成", 404
+
+    if task['status'] != 'completed':
+        return "任务尚未完成，请稍后重试", 202
+
+    variants = task['result'].get('variants', [])
+    return render_template('results.html', variants=variants, task_id=task_id)
 
 # upload file
 @main.route('/upload', methods=['POST'])
@@ -90,13 +102,6 @@ def get_task_status(task_id):
         traceback.print_exc()  
         return jsonify({'error': '服务器内部错误，请查看终端日志'}), 500
 
-
-@main.route('/results', methods=['GET'])
-def results():
-    task_id = request.args.get('task_id')
-    return render_template(
-        'results.html'
-    )
 
 
 # ----------------------------

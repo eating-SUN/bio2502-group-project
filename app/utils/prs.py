@@ -5,10 +5,8 @@ _seen_prs_unmatched = set()
 def compute_prs(variants, verbose=True):
     print(f"[INFO][compute_prs] 开始读取PRS数据文件...")
     prs_df = pd.read_csv("data/prs/pgs000001.csv")
-    print(f"[INFO][compute_prs] 成功读取PRS数据文件，数据行数: {len(prs_df)}")
-
     prs_df = prs_df.dropna(subset=['rsID', 'effect_allele', 'effect_weight'])
-    print(f"[INFO][compute_prs] 清理完成后，保留有效行数: {len(prs_df)}")
+    print(f"[INFO][compute_prs] PRS清理完成, 保留有效行数: {len(prs_df)}")
 
     score = 0.0
     matched_snps = 0
@@ -20,8 +18,6 @@ def compute_prs(variants, verbose=True):
         if var_id.startswith('rs'):
             var_id = var_id[2:]
         variant_dict[var_id] = v['variant_info']
-
-    print(f"[INFO][compute_prs] 变异信息已转换为字典，标准化后数量: {len(variant_dict)}")
 
     print(f"[INFO][compute_prs] 开始匹配PRS位点与样本变异...")
     for _, row in prs_df.iterrows():
