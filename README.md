@@ -12,64 +12,103 @@
 
 ### 安装方法
 
-我们已将 `ensembl-vep.tar.gz` 文件包含在项目根目录中。你可以运行以下脚本来自动解压和安装 VEP：
+你可以运行以下脚本来自动下载并安装 VEP：
 
 ```bash
 bash scripts/install_vep.sh
 ```
 
 > 脚本会在项目根目录解压 `ensembl-vep` 文件夹，并完成基本配置。
+> 缓存自动下载部分默认注释，避免重复下载。若需要，取消脚本中第 3 步缓存下载部分的注释即可自动安装缓存。
+
+明白！我帮你写一份优化版安装脚本和README说明，包含：
+
+* 自动缓存下载部分默认注释，方便用户根据需求选择启用
+* README里提示两种缓存安装方式，方便用户理解和选择
+
+---
+
+## 优化后的 `scripts/install_vep.sh`
+
+```bash
+#!/bin/bash
+set -e
+
+# VEP 版本（可根据需要更改）
+VEP_VERSION="release/114"  
+VEP_DIR="ensembl-vep"
+
+echo "开始安装 Ensembl VEP..."
+
+# 1. 下载并解压 VEP
+if [ ! -d "$VEP_DIR" ]; then
+  echo "下载 VEP ${VEP_VERSION}..."
+  curl -L -o ensembl-vep.tar.gz "https://github.com/Ensembl/ensembl-vep/archive/${VEP_VERSION}.tar.gz"
+  tar -xzf ensembl-vep.tar.gz
+  VEP_FOLDER=$(echo "$VEP_VERSION" | sed 's/\//-/g')
+  mv "ensembl-vep-${VEP_FOLDER}" "$VEP_DIR"
+  rm ensembl-vep.tar.gz
+else
+  echo "检测到已有 $VEP_DIR 文件夹，跳过下载"
+fi
+
+cd "$VEP_DIR"
+
+# 2. 安装 Perl 依赖（需先安装 cpanm）
+echo "安装 Perl 依赖..."
+perl INSTALL.pl --AUTO c --NO_HTSLIB
+
+# 3. 安装缓存（注释掉，用户可根据需求取消注释执行）
+# echo "下载并安装缓存数据（homo_sapiens, GRCh38）..."
+# perl INSTALL.pl --AUTO c --SPECIES homo_sapiens --ASSEMBLY GRCh38 --CACHEDIR ~/.vep
+
+echo "Ensembl VEP 安装完成！"
+
+echo "请确保你的环境变量 PATH 包含 VEP 目录，例如："
+echo "export PATH=\$PATH:$(pwd)"
+```
 
 ### 本地缓存与参考基因组配置
 
-为了支持离线注释和 HGVS 格式输出，**你还需要手动下载以下数据文件**：
+为了支持离线注释和 HGVS 格式输出，**你需要下载 VEP 缓存数据库和参考基因组 FASTA 文件**。
+缓存数据库有两种获取方式，任选其一：
 
-1. **VEP 缓存数据库**（适用于 GRCh38）：
+1. **自动安装缓存（推荐简单）**
+   在 `scripts/install_vep.sh` 中取消注释第 3 步的缓存安装命令，执行脚本自动下载并安装缓存：
+
+   ```bash
+   perl INSTALL.pl --AUTO c --SPECIES homo_sapiens --ASSEMBLY GRCh38 --CACHEDIR ~/.vep
+   ```
+
+2. **手动下载缓存（灵活控制）**
+   手动下载缓存文件并解压到缓存目录：
 
    ```bash
    curl -O ftp://ftp.ensembl.org/pub/release-114/variation/indexed_vep_cache/homo_sapiens_vep_114_GRCh38.tar.gz
-   ```
-
-   解压后将生成 `.vep` 缓存目录，可移动至项目根目录：
-
-   ```bash
    mkdir -p ~/.vep
    tar -xzf homo_sapiens_vep_114_GRCh38.tar.gz -C ~/.vep
    ```
-   * 注：可使用多线程下载工具加速下载，如aria2：
+
+   可用多线程下载工具 aria2 加速：
 
    ```bash
-   # 安装 aria2（如未安装）
-   # Ubuntu/Debian: sudo apt install aria2
-   # macOS: brew install aria2
-
-   # 使用 16 线程下载
    aria2c -s 16 -x 16 "ftp://ftp.ensembl.org/pub/release-114/variation/indexed_vep_cache/homo_sapiens_vep_114_GRCh38.tar.gz"
    ```
-2. **参考基因组 FASTA 文件**（用于生成 HGVS 表达式）：
 
-   ```bash
-   curl -O ftp://ftp.ensembl.org/pub/release-114/fasta/homo_sapiens/dna_index/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz
-   gunzip Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz
-   mv Homo_sapiens.GRCh38.dna.primary_assembly.fa data/GRCh38/
-   ```
+### 参考基因组 FASTA 文件（用于 HGVS 表达式）
 
-   该命令会将解压后的 `.fa` 文件放在 `data/GRCh38/` 目录下。
+```bash
+curl -O ftp://ftp.ensembl.org/pub/release-114/fasta/homo_sapiens/dna_index/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz
+gunzip Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz
+mv Homo_sapiens.GRCh38.dna.primary_assembly.fa data/GRCh38/
+```
 
-### 运行说明
+### 其他说明
 
-* **项目目录结构要求**：`ensembl-vep` 文件夹应位于项目根目录，与 `app/` 文件夹同级。
-* 程序默认通过路径 `./ensembl-vep/vep` 调用 VEP 脚本。
-* `.vep` 缓存目录默认为项目根目录下的 `.vep/`，如有更改请在 `run_vep()` 函数中修改 `--dir_cache` 参数。
-* FASTA 文件路径通过 `--fasta` 参数传入，确保该路径正确指向解压后的 `.fa` 文件。
-
-### 注意事项
-
-* 请确保你已安装 Perl 及 VEP 所需依赖（详见 [VEP 官方文档](https://www.ensembl.org/info/docs/tools/vep/script/vep_download.html)）。
-* 若将 `ensembl-vep` 文件夹或 `.vep` 缓存移动至其他位置，请相应更新 `app/utils/gene_to_protein.py` 中的路径设置。
-* 建议将 `.vep/` 缓存目录和 `.fa` 文件加入 `.gitignore`，以避免上传至 Git 仓库。
-
-
+* 请确保你已安装 Perl 及 VEP 所需依赖（如 cpanm、gcc、make 等）。
+* 如果将 `ensembl-vep` 文件夹或 `.vep` 缓存目录移动至其他位置，请更新程序中对应的路径配置。
+* `.vep` 缓存目录默认是 `~/.vep`，若需更改，请在调用 VEP 时用 `--dir_cache` 参数指定。
+* FASTA 文件路径通过 `--fasta` 参数传入，确保路径正确。
 
 
 ## 下载数据文件
@@ -92,11 +131,11 @@ bash scripts/download_data.sh
 
 该脚本将自动完成以下操作：
 
-* 创建所需的目录结构（`data/clinvar`, `data/dbNSFP5`, `data/prs`, `data/regulome`）
+* 创建所需的目录结构（`data/clinvar`, `data/prs`, `data/regulome`）
 * 下载：
 
   * ClinVar 数据文件（`variant_summary.csv`）
-  * PRS 数据文件（`pgs000001.csv`）
+  * PRS 数据文件（`pgs000001.csv`, `pgs00000153.csv`, `pgs000212.csv`, `pgs000344.csv`, `pgs004153.csv`, `pgs005164.csv` 合并为的csv文件: `prs_breast_cancer.csv`）
   * RegulomeDB 数据文件（`regulome_data.csv`）
 
 > 注意：该脚本使用了 `wget`，请确保你的系统已安装该工具，并保持网络连接。

@@ -1,58 +1,63 @@
 import pandas as pd
 
+# 读取 CSV 文件
 clinvar_df = pd.read_csv("data/clinvar/variant_summary.csv", dtype=str)
-clinvar_df['Chromosome'] = clinvar_df['Chromosome'].astype(str).str.strip()
-clinvar_df['Start'] = clinvar_df['Start'].astype(str).str.strip()
-clinvar_df['chrom_pos'] = 'chr' + clinvar_df['Chromosome'] + ':' + clinvar_df['Start']
 
-_seen_clinvar_unmatched = set()
-_seen_clinvar_matched = set()
-_clinvar_unmatched_count = 0
+# 兼容处理
+clinvar_df.rename(columns={'CHROM': '#CHROM'}, inplace=True)
+
+# 构建 chrom_pos 索引
+if 'chrom_pos' not in clinvar_df.columns:
+    clinvar_df['chrom_pos'] = clinvar_df['#CHROM'].astype(str) + ':' + clinvar_df['POS'].astype(str)
+
+# 构建 rsid 索引
+if 'rsid' not in clinvar_df.columns:
+    clinvar_df['rsid'] = clinvar_df['ID'].apply(lambda x: x if str(x).startswith('rs') else None)
 
 def query_clinvar(variant_id):
-    global _clinvar_unmatched_count
-
-    def standardize_id(vid):
-        if not isinstance(vid, str):
-            return None
-        if vid.startswith('rs'):
-            return vid
-        if ':' in vid and not vid.startswith('chr'):
-            parts = vid.split(':')
-            if len(parts) == 2:
-                chrom, pos = parts
-                return f'chr{chrom.strip()}:{pos.strip()}'
-        return vid  # fallback
-
+    """
+    支持三种查询方式：
+    1. 直接匹配ID列 (如 3385321)
+    2. 匹配rsID (如 rs121908936)
+    3. 匹配染色体位置 (如 1:66926)
+    """
     try:
-        variant_id_std = standardize_id(variant_id)
-        if variant_id_std is None:
-            raise ValueError("无法标准化 variant_id")
-
-        # 判断匹配方式
-        if variant_id_std.startswith('rs'):
-            rsid_num = variant_id_std[2:]
-            match = clinvar_df[clinvar_df['RS# (dbSNP)'] == rsid_num]
-            match_type = 'rsID'
-        elif ':' in variant_id_std:
-            match = clinvar_df[clinvar_df['chrom_pos'] == variant_id_std]
-            match_type = 'CHROM:POS'
+        # 情况1：直接匹配ID
+        if variant_id in clinvar_df['ID'].values:
+            match = clinvar_df[clinvar_df['ID'] == variant_id]
+        
+        # 情况2：匹配rsID
+        elif str(variant_id).startswith('rs'):
+            match = clinvar_df[clinvar_df['rsid'] == variant_id]
+        
+        # 情况3：匹配染色体位置
+        elif ':' in str(variant_id):
+            chrom, pos = str(variant_id).split(':')
+            match = clinvar_df[
+                (clinvar_df['#CHROM'] == chrom) & 
+                (clinvar_df['POS'] == pos)
+            ]
         else:
-            match = clinvar_df[clinvar_df['RS# (dbSNP)'] == variant_id_std]
-            match_type = 'unknown'
-
-        if match.empty:
-            if variant_id not in _seen_clinvar_unmatched:
-                _seen_clinvar_unmatched.add(variant_id)
-                _clinvar_unmatched_count += 1
             return {'variant_id': variant_id, 'clinvar': None}
 
-        if variant_id not in _seen_clinvar_matched:
-            _seen_clinvar_matched.add(variant_id)
+        if match.empty:
+            return {'variant_id': variant_id, 'clinvar': None}
 
-        return {'variant_id': variant_id, 'clinvar': match.iloc[0].to_dict()}
+        best_match = match.iloc[0].to_dict()
+        return {
+            'variant_id': variant_id,
+            'clinvar': {
+                'Chromosome': best_match['#CHROM'],
+                'Start': best_match['POS'],
+                'ID': best_match['ID'],
+                'ClinicalSignificance': best_match.get('CLNSIG', 'Unknown'),
+                'Gene': best_match.get('GENEINFO', 'Unknown').split('|')[0].split(':')[0],
+                'Phenotype': best_match.get('CLNDN', 'Unknown'),
+            }
+        }
 
     except Exception as e:
-        print(f"[ERROR][query_clinvar] 查询变异 {variant_id} 时出错: {e}")
+        print(f"[ERROR] 查询失败: {e}")
         return {'variant_id': variant_id, 'clinvar': None}
+
 

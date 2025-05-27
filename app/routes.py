@@ -132,7 +132,7 @@ def process_vcf_background(task_id, file_path):
             unmatched_count = 0
             for v in variants:
                 if 'variant_info' in v:
-                    clinvar_data = variant_query.query_clinvar(v['variant_info']['id'], quiet=True)
+                    clinvar_data = variant_query.query_clinvar(v['variant_info']['id'])
                     v['clinvar_data'] = clinvar_data
                     if clinvar_data.get('clinvar') is None:
                         unmatched_count += 1
