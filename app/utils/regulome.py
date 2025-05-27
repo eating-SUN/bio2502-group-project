@@ -1,6 +1,6 @@
 import pandas as pd
 
-reg_df = pd.read_csv('data/regulome/regulome_data.csv')
+reg_df = pd.read_csv('./data/regulome/regulome_data.csv')
 _seen_reg_unmatched = set()
 
 def query_score(position):
