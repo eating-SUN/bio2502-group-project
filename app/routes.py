@@ -21,7 +21,24 @@ def upload_page():
 
 @main.route('/results', methods=['GET'])
 def results_page():
-    return render_template('results.html')
+    task_id = request.args.get('task_id')
+    task = tasks.get(task_id, {})
+    
+    # 如果任务未完成，返回加载状态
+    # 如果任务无效，提示用户去上传文件
+    if not task_id:
+        return render_template('results.html', task_status='invalid', task_id=task_id)
+    if task.get('status') != 'completed':
+        return render_template('results.html', prsScore=0, prsRisk='未知')
+    
+    # 正常返回结果
+    return render_template(
+        'results.html',
+        prsScore=task.get('result', {}).get('prs_score', 0),
+        prsRisk=task.get('result', {}).get('prs_risk', '未知'),
+        variants=task.get('result', {}).get('variants', []),
+        task_status='completed'
+    )
 
 # upload file
 @main.route('/upload', methods=['POST'])
@@ -89,14 +106,6 @@ def get_task_status(task_id):
         print(f"[ERROR] 获取任务 {task_id} 状态失败：{e}")
         traceback.print_exc()  
         return jsonify({'error': '服务器内部错误，请查看终端日志'}), 500
-
-
-@main.route('/results', methods=['GET'])
-def results():
-    task_id = request.args.get('task_id')
-    return render_template(
-        'results.html'
-    )
 
 
 # ----------------------------

@@ -7,7 +7,10 @@ const ResultsApp = {
             pageSize: 10,
             mergedData: [],
             prsScore: 'N/A',
-            prsRisk: '未评估'
+            prsRisk: '未评估',
+            taskId: null,
+            progress: 0,
+            taskStatus: 'pending' // 新增任务状态跟踪
         }
     },
     computed: {
@@ -28,23 +31,101 @@ const ResultsApp = {
         }
     },
     methods: {
-        initData(resultData) {
-            this.prsScore = resultData.summary?.prs_score || 'N/A';
-            this.prsRisk = resultData.summary?.prs_risk || '未评估';
+        // 新增：轮询任务状态
+        pollTaskStatus() {
+            if (!this.taskId) return;
             
-            // 合并数据逻辑
+            const checkStatus = () => {
+                fetch(`/status/${this.taskId}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'completed') {
+                            this.initData(data.result);
+                            this.taskStatus = 'completed';
+                        } else if (data.status === 'failed') {
+                            showError(data.error_message || '分析任务失败');
+                        } else {
+                            this.progress = data.progress;
+                            this.taskStatus = data.status;
+                            setTimeout(checkStatus, 3000); // 3秒后再次检查
+                        }
+                    });
+            };
+            checkStatus();
+        },
+        // 修改：增强数据初始化
+        initData(resultData) {
+            if (!resultData) return;
+            
+            this.prsScore = resultData.summary?.prs_score ?? 'N/A';
+            this.prsRisk = resultData.summary?.prs_risk ?? '未评估';
+            
+            // 合并数据增加容错
             this.mergedData = (resultData.variants || []).map((variant, index) => ({
                 variant: variant.variant_info || {},
                 clinvar: (resultData.summary?.clinvar_data || [])[index] || {}
             }));
 
-            // 渲染图表
+            // 延迟渲染确保DOM更新
             this.$nextTick(() => {
-                renderCharts(resultData);
+                try {
+                    renderCharts(resultData);
+                    document.getElementById('loadingMessage').classList.add('d-none');
+                    document.getElementById('resultsContent').classList.remove('d-none');
+                } catch (e) {
+                    console.error('图表渲染失败:', e);
+                }
             });
+        }
+    },
+    mounted() { // 新增挂载逻辑
+        this.taskId = new URLSearchParams(window.location.search).get('task_id');
+        if (this.taskId) {
+            this.pollTaskStatus();
+        } else {
+            showError('无效的任务ID');
         }
     }
 };
+
+// 初始化Vue
+document.addEventListener('DOMContentLoaded', () => {
+    new Vue(ResultsApp).$mount('#app');
+});
+
+function renderClinvarChart(clinvarData) {
+    const container = document.getElementById('clinvarChart');
+    if (!container || !clinvarData?.length) {
+        container.innerHTML = '<div class="alert alert-secondary">无可用ClinVar数据</div>';
+        return;
+    }
+        // 数据统计
+    const significanceCount = clinvarData.reduce((acc, cur) => {
+        const key = cur?.ClinicalSignificance || 'Unknown';
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+    }, {});
+
+    // 图表配置
+    const data = [{
+        values: Object.values(significanceCount),
+        labels: Object.keys(significanceCount),
+        type: 'pie',
+        hole: 0.4,
+        marker: {
+            colors: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
+        }
+    }];
+
+    const layout = {
+        title: 'ClinVar临床意义分布',
+        height: 300,
+        margin: { t: 40, b: 20 }
+    };
+    Plotly.newPlot('clinvarChart', data, layout);
+}
+
+
 
 function renderStoredResults() {
     const rawData = sessionStorage.getItem('vcfResults');
@@ -57,9 +138,8 @@ function renderStoredResults() {
         showError('结果数据解析失败');
     }
 }
-// 监听DOM加载完成事件，渲染存储的结果
-document.addEventListener('DOMContentLoaded', renderStoredResults);
 
+// 错误处理函数
 function showResults(resultData) {
     const app = new Vue(ResultsApp).$mount('#app');
     app.initData(resultData);
@@ -126,19 +206,22 @@ function handleMissingResults() {
         </div>
     `;
 }
-
-// 错误处理函数
+//
 function showError(message) {
     const errorElement = document.getElementById('errorMessage');
-    errorElement.textContent = message;
+    errorElement.innerHTML = `
+        <div class="alert alert-danger d-flex align-items-center">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            ${message}
+        </div>
+    `;
     errorElement.classList.remove('d-none');
     
+    // 5秒后自动隐藏
     setTimeout(() => {
         errorElement.classList.add('fade-out');
-        setTimeout(() => {
-            errorElement.classList.remove('fade-out', 'd-none');
-        }, 500);
-    }, 3000);
+        setTimeout(() => errorElement.classList.add('d-none'), 500);
+    }, 5000);
 }
 
 // 在results.js中添加图表渲染函数

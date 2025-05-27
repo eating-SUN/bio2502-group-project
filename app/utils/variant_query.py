@@ -9,7 +9,7 @@ _seen_clinvar_unmatched = set()
 _seen_clinvar_matched = set()
 _clinvar_unmatched_count = 0
 
-def query_clinvar(variant_id):
+def query_clinvar(variant_id,quiet=False):
     global _clinvar_unmatched_count
 
     def standardize_id(vid):
@@ -53,6 +53,6 @@ def query_clinvar(variant_id):
         return {'variant_id': variant_id, 'clinvar': match.iloc[0].to_dict()}
 
     except Exception as e:
-        print(f"[ERROR][query_clinvar] 查询变异 {variant_id} 时出错: {e}")
+        if not quiet:  # 根据 quiet 参数控制错误输出
+            print(f"[ERROR][query_clinvar] 查询变异 {variant_id} 时出错: {e}")
         return {'variant_id': variant_id, 'clinvar': None}
-
