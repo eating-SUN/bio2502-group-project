@@ -1,14 +1,15 @@
 import pandas as pd
 
 # 读取 CSV 文件
-clinvar_df = pd.read_csv("data/clinvar/variant_summary.csv", dtype=str)
+clinvar_df = pd.read_csv("data/clinvar/clinvar.csv", dtype=str)
+print(clinvar_df.columns)
 
 # 兼容处理
 clinvar_df.rename(columns={'CHROM': '#CHROM'}, inplace=True)
 
 # 构建 chrom_pos 索引
 if 'chrom_pos' not in clinvar_df.columns:
-    clinvar_df['chrom_pos'] = clinvar_df['#CHROM'].astype(str) + ':' + clinvar_df['POS'].astype(str)
+    clinvar_df['chrom_pos'] = clinvar_df['CHROM'].astype(str) + ':' + clinvar_df['POS'].astype(str)
 
 # 构建 rsid 索引
 if 'rsid' not in clinvar_df.columns:

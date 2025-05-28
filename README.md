@@ -2,6 +2,7 @@
 
 本项目构建了一个基于 Flask 的 Web 应用，允许用户上传 VCF 文件，在本地自动完成变异注释、蛋白质氨基酸变化提取，并分析其对蛋白质结构和功能的潜在影响。
 
+
 ## 项目结构
 
 
@@ -9,6 +10,7 @@
 ## 安装 Ensembl VEP 工具
 
 本项目依赖 [Ensembl Variant Effect Predictor (VEP)](https://www.ensembl.org/info/docs/tools/vep/index.html) 来注释基因变异的蛋白质影响。
+
 
 ### 安装方法
 
@@ -49,6 +51,7 @@ bash scripts/install_vep.sh
    aria2c -s 16 -x 16 "ftp://ftp.ensembl.org/pub/release-114/variation/indexed_vep_cache/homo_sapiens_vep_114_GRCh38.tar.gz"
    ```
 
+
 ### 参考基因组 FASTA 文件（用于 HGVS 表达式）
 
 ```bash
@@ -57,12 +60,14 @@ gunzip Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz
 mv Homo_sapiens.GRCh38.dna.primary_assembly.fa data/GRCh38/
 ```
 
+
 ### 其他说明
 
 * 请确保你已安装 Perl 及 VEP 所需依赖（如 cpanm、gcc、make 等）。
 * 如果将 `ensembl-vep` 文件夹或 `.vep` 缓存目录移动至其他位置，请更新程序中对应的路径配置。
 * `.vep` 缓存目录默认是 `~/.vep`，若需更改，请在调用 VEP 时用 `--dir_cache` 参数指定。
 * FASTA 文件路径通过 `--fasta` 参数传入，确保路径正确。
+
 
 
 ## 下载数据文件
@@ -74,6 +79,7 @@ mv Homo_sapiens.GRCh38.dna.primary_assembly.fa data/GRCh38/
 * RegulomeDB 数据：用于非编码区变异的功能注释
 
 我们提供了一个自动下载脚本，能帮助你快速获取所需数据并放入正确的文件夹中。
+
 
 ### 下载方法
 
