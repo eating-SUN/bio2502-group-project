@@ -22,23 +22,32 @@ def upload_page():
 @main.route('/results', methods=['GET'])
 def results_page():
     task_id = request.args.get('task_id')
-    task = tasks.get(task_id, {})
     
-    # 如果任务未完成，返回加载状态
-    # 如果任务无效，提示用户去上传文件
+    # 统一响应格式
+    base_data = {
+        'task_status': 'pending',
+        'prsScore': 0,
+        'prsRisk': '未评估',
+        'variants': []
+    }
+
     if not task_id:
-        return render_template('results.html', task_status='invalid', task_id=task_id)
-    if task.get('status') != 'completed':
-        return render_template('results.html', prsScore=0, prsRisk='未知')
-    
-    # 正常返回结果
-    return render_template(
-        'results.html',
-        prsScore=task.get('result', {}).get('prs_score', 0),
-        prsRisk=task.get('result', {}).get('prs_risk', '未知'),
-        variants=task.get('result', {}).get('variants', []),
-        task_status='completed'
-    )
+        base_data['task_status'] = 'invalid'
+        return render_template('results.html', **base_data)
+
+    task = tasks.get(task_id, {})
+    status = task.get('status', 'invalid')
+    base_data['task_status'] = status
+
+    if status == 'completed':
+        result = task.get('result', {})
+        base_data.update({
+            'prsScore': result.get('prs_score', 0),
+            'prsRisk': result.get('prs_risk', '未知'),
+            'variants': result.get('variants', [])
+        })
+
+    return render_template('results.html', **base_data)
 
 # upload file
 @main.route('/upload', methods=['POST'])

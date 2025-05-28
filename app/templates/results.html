@@ -25,13 +25,23 @@
     <meta name="msapplication-square150x150logo" content="{{ url_for('static', filename='mstile-150x150.png') }}" />
     <meta name="msapplication-wide310x150logo" content="{{ url_for('static', filename='mstile-310x150.png') }}" />
     <meta name="msapplication-square310x310logo" content="{{ url_for('static', filename='mstile-310x310.png') }}" />
+    
 
     <!-- Plotly 图表库 -->
     <script src="https://cdn.plot.ly/plotly-3.0.1.min.js" charset="utf-8"></script>
     <title>致病性变异分析系统</title>
     
     <style>
-
+          [v-cloak] > * { 
+                visibility: hidden; 
+            }
+            [v-cloak]::before {
+                content: "加载中...";
+                position: absolute;
+                left: 50%;
+                transform: translateX(-50%);
+                color: #666;
+            }
         .text-monospace {
             font-family: SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
         }
@@ -97,10 +107,10 @@
                         <a class="nav-link" href="{{ url_for('main.upload_page') }}">上传数据</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.results') }}">分析结果</a>
+                        <a class="nav-link" href="{{ url_for('main.results_page') }}">分析结果</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.results') }}">下载报告</a> 
+                        <a class="nav-link" href="{{ url_for('main.results_page') }}">下载报告</a> 
                     </li> 
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('main.upload_page') }}">重新上传</a>
@@ -112,27 +122,58 @@
 
 
 <!-- 结果展示区 --> 
-<div class="container mt-4">
+<div class="container mt-4" id="app" v-cloak>
     <div class="card">
         <div class="card-header bg-success text-white">
             <h3 class="mb-0">分析结果</h3>
         </div>
-        <div class="card-body">
-            <!-- 加载状态提示 -->
-            <div id="loadingMessage" class="text-center py-5">
-                <div class="spinner-border text-primary" role="status"></div>
-                <p v-if="task_status === 'invalid'">任务ID无效，请 <a href="{{ url_for('main.upload_page') }}">上传文件</a>。</p>
-                <p class="mt-2" v-else-if="task_status === 'queued'">任务排队中，请稍候...</p>
-                <p class="mt-2" v-else-if="task_status === 'parsing'">任务正在运行，请稍候...</p>
+        <script>
+                const SERVER_DATA = {
+                    initial_task_status: '{{ task_status|default("pending") }}',
+                    initial_prs_score: {{ prsScore|default(0) }},
+                    initial_prs_risk: '{{ prsRisk|default("未评估") }}',
+                    initial_variants: {{ variants|tojson|safe if variants else [] }}
+                };
+            </script>
+        <div class="card-body" >
+        <!-- 错误提示 -->
+        <div v-if="task_status === 'failed'" class="alert alert-danger">
+            ${ error_message }
+        </div>
+
+        
+        <template v-if="task_status === 'invalid'">
+            <div class="text-center py-5">
+                <div class="alert alert-danger">
+                    任务ID无效，请 <a href="${url_for('main.upload_page')}">上传文件</a>。
+                </div>
             </div>
-            <div id="resultsContent" class="d-none" v-else></div>   
+        </template>
+
+        <!-- 加载状态 -->
+        <template v-else-if="!['completed', 'failed'].includes(task_status)">
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-2">${ loadingStatusText }</p>
+                <div class="progress mt-3" style="height: 20px;">
+                    <div class="progress-bar progress-bar-striped" 
+                        :style="{ width: progress + '%' }">
+                        ${ progress }%
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <!-- 完成状态 -->
+        <template v-else-if="task_status === 'completed'">
             <!-- PRS评分 -->
-            <div class="mb-4" v-if="task_status === 'completed'">
+            <div class="mb-4">
                 <h4>PRS评分: 
-                    <span class="text-primary">{{ prsScore }}</span> 
-                    <span class="badge" :class="riskBadgeClass">{{ prsRisk }}</span>
+                    <span class="text-primary">${ prs_score }</span> 
+                    <span class="badge" :class="riskBadgeClass">${ prs_risk }</span>
                 </h4>
             </div>
+
             
             <!-- 分页控制 -->
             <div class="row mb-3" v-if="task_status === 'completed'">
@@ -165,39 +206,26 @@
             </div>
 
             <!-- 合并后的表格 -->
-            <div class="table-responsive" v-if="task_status === 'completed'">
+            <div class="table-responsive">
                 <table class="table table-striped variant-table">
-                    <thead>
-                        <tr>
-                            <th>染色体</th>
-                            <th>位置</th>
-                            <th>参考碱基</th>
-                            <th>变异碱基</th>
-                            <th>临床意义</th>
-                            <th>表型</th>
-                            <th>评审状态</th>
-                        </tr>
-                    </thead>
+                    <thead><!-- 保持原样 --></thead>
                     <tbody>
-                        {% for item in variants %}
-                        <tr>
-                            <td>{{ item.get('variant', {}).get('Chromosome', 'chrN/A') }}</td>
-                            <td>{{ item.get('variant', {}).get('Start', '-') }}</td>
-                            <td class="text-monospace">{{ item.get('variant', {}).get('Reference', '-') }}</td>
-                            <td class="text-monospace text-danger">{{ item.get('variant', {}).get('Alternate', '-') }}</td>
+                        <tr v-for="(item, index) in mergedData" :key="index">
+                            <td>${ item.variant?.Chromosome || 'chrN/A' }</td>
+                            <td>${ item.variant?.Start || '-' }</td>
+                            <td class="text-monospace">${ item.variant?.Reference || '-' }</td>
+                            <td class="text-monospace text-danger">${ item.variant?.Alternate || '-' }</td>
                             <td>
                                 <span class="badge bg-info">
-                                    {{ item.get('clinvar', {}).get('ClinicalSignificance', '未知') }}
+                                    ${ item.clinvar?.ClinicalSignificance || '未知' }
                                 </span>
                             </td>
-                            <td>{{ item.get('clinvar', {}).get('PhenotypeList', '-') }}</td>
-                            <td>{{ item.get('clinvar', {}).get('ReviewStatus', '-') }}</td>
+                            <td>${ item.clinvar?.PhenotypeList || '-' }</td>
+                            <td>${ item.clinvar?.ReviewStatus || '-' }</td>
                         </tr>
-                        {% endfor %}
                     </tbody>
                 </table>
             </div>
-
             <!-- 图表容器 -->
             <div class="row mb-4" v-if="task_status === 'completed'">
                 <div class="col-md-6">

@@ -5,15 +5,26 @@ const ResultsApp = {
         return {
             currentPage: 1,
             pageSize: 10,
-            mergedData: [],
-            prsScore: 'N/A',
-            prsRisk: '未评估',
+            prs_score: SERVER_DATA.initial_prs_score,
+            prs_risk: SERVER_DATA.initial_prs_risk,
+            mergedData: SERVER_DATA.initial_variants,
             taskId: null,
             progress: 0,
-            taskStatus: 'pending' // 新增任务状态跟踪
+            task_status: SERVER_DATA.initial_task_status,
         }
     },
     computed: {
+        loadingStatusText() {
+            const statusMap = {
+                pending: '正在初始化任务...',
+                queued: '排队中，当前队列位置：' + this.queuePosition,
+                parsing: `分析中（${this.progress}%）`,
+                validating: '正在验证数据...'
+            }
+            return statusMap[this.task_status] || '请稍候...'
+        },
+
+
         riskBadgeClass() {
             return {
                 'bg-success': this.prsRisk === '低风险',
@@ -31,26 +42,29 @@ const ResultsApp = {
         }
     },
     methods: {
-        // 新增：轮询任务状态
         pollTaskStatus() {
-            if (!this.taskId) return;
-            
-            const checkStatus = () => {
-                fetch(`/status/${this.taskId}`)
+            const vm = this;
+            function checkStatus() {
+                fetch(`/status/${vm.taskId}`)
                     .then(res => res.json())
                     .then(data => {
+                        // 强制更新视图
+                        vm.$set(vm, 'task_status', data.status);
+                        vm.progress = data.progress;
+
                         if (data.status === 'completed') {
-                            this.initData(data.result);
-                            this.taskStatus = 'completed';
+                            vm.initData(data.result);
                         } else if (data.status === 'failed') {
-                            showError(data.error_message || '分析任务失败');
+                            vm.$set(vm, 'error_message', data.error_message);
                         } else {
-                            this.progress = data.progress;
-                            this.taskStatus = data.status;
-                            setTimeout(checkStatus, 3000); // 3秒后再次检查
+                            setTimeout(checkStatus, 2500);
                         }
+                    })
+                    .catch(err => {
+                        console.error('轮询失败:', err);
+                        setTimeout(checkStatus, 5000);
                     });
-            };
+            }
             checkStatus();
         },
         // 修改：增强数据初始化
@@ -127,17 +141,6 @@ function renderClinvarChart(clinvarData) {
 
 
 
-function renderStoredResults() {
-    const rawData = sessionStorage.getItem('vcfResults');
-    if (!rawData) return handleMissingResults();
-    
-    try {
-        const resultData = JSON.parse(rawData);
-        showResults(resultData);
-    } catch (e) {
-        showError('结果数据解析失败');
-    }
-}
 
 // 错误处理函数
 function showResults(resultData) {
