@@ -111,10 +111,10 @@
                         <a class="nav-link" href="{{ url_for('main.upload_page') }}">上传数据</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.results') }}">分析结果</a>
+                        <a class="nav-link" href="{{ url_for('main.results_page') }}">分析结果</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.results') }}">下载报告</a> 
+                        <a class="nav-link" href="{{ url_for('main.results_page') }}">下载报告</a> 
                     </li> 
                 </ul>
             </div>
@@ -205,12 +205,12 @@
                 </div>
                 <div class="col-md-4 mb-4">
                     <div class="method-step">2</div>
-                    <h4><a href="{{ url_for('main.results') }}" class="text-decoration-none">系统分析</a></h4>
+                    <h4><a href="{{ url_for('main.results_page') }}" class="text-decoration-none">系统分析</a></h4>
                     <p>自动进行注释与致病性预测</p>
                 </div>
                 <div class="col-md-4 mb-4">
                     <div class="method-step">3</div>
-                    <h4><a href="{{ url_for('main.results') }}" class="text-decoration-none">下载报告</a></h4>
+                    <h4><a href="{{ url_for('main.results_page') }}" class="text-decoration-none">下载报告</a></h4>
                     <p>生成PDF格式的完整分析报告</p>
                 </div>
             </div>

@@ -19,6 +19,36 @@ def index():
 def upload_page():
     return render_template('upload.html')
 
+@main.route('/results', methods=['GET'])
+def results_page():
+    task_id = request.args.get('task_id')
+    
+    # 统一响应格式
+    base_data = {
+        'task_status': 'pending',
+        'prsScore': 0,
+        'prsRisk': '未评估',
+        'variants': []
+    }
+
+    if not task_id:
+        base_data['task_status'] = 'invalid'
+        return render_template('results.html', **base_data)
+
+    task = tasks.get(task_id, {})
+    status = task.get('status', 'invalid')
+    base_data['task_status'] = status
+
+    if status == 'completed':
+        result = task.get('result', {})
+        base_data.update({
+            'prsScore': result.get('prs_score', 0),
+            'prsRisk': result.get('prs_risk', '未知'),
+            'variants': result.get('variants', [])
+        })
+
+    return render_template('results.html', **base_data)
+
 # upload file
 @main.route('/upload', methods=['POST'])
 def upload_file():

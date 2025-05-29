@@ -167,7 +167,7 @@ function clearInput() {
 
 
 /**
- * 轮询获取结果
+ * 轮询获取结果（修改版）
  */
 function checkTaskStatus(taskId) {
     const uploadProgress = document.getElementById('uploadProgress');
@@ -187,39 +187,24 @@ function checkTaskStatus(taskId) {
                 progressText.textContent = `${data.progress}%`;
                 progressBar.classList.remove('progress-bar-indeterminate');
             }
-                
-                // 显示通知
+
+            // 处理任务状态
             if (data.status === 'completed') {
-                if (data.result?.variants?.length > 0) {
-                    clearInterval(interval);
-                    uploadProgress.classList.add('d-none');
-                    storeResults(data.result);       
-                    } 
-                else {
-                    showError(document.getElementById('uploadError'), '分析完成，但未检测到有效变异。请检查文件格式。');
-                }
-            }
-            else if (data.status === 'failed') {
                 clearInterval(interval);
                 uploadProgress.classList.add('d-none');
-                showError(document.getElementById('uploadError'),'分析失败');
+                
+                // 直接跳转到带task_id的结果页
+                window.location.href = `/results?task_id=${taskId}`; // 关键修改点
+                
+            } else if (data.status === 'failed') {
+                clearInterval(interval);
+                uploadProgress.classList.add('d-none');
+                showError(document.getElementById('uploadError'), data.error_message || '分析失败');
             }
         } catch (error) {
             clearInterval(interval);
             uploadProgress.classList.add('d-none');
             showError(document.getElementById('uploadError'), '网络错误，请重试');
         }
-    }, 2000); // 每2秒查询一次
-}
-
-/**
- * 存储分析结果到sessionStorage
- * @param {Array} results 
- */
-function storeResults(results) {
-    // 仅存储结果到 sessionStorage
-    sessionStorage.setItem('vcfResults', JSON.stringify(results));
-    
-    // 自动跳转到结果页面
-    window.location.href = '/results';
+    }, 2000);
 }
