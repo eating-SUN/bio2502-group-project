@@ -1,5 +1,5 @@
 from cyvcf2 import VCF
-import clinvar_query
+import app.utils.clinvar_query as clinvar_query
 import tempfile
 from app.utils.gene_to_protein import run_vep, parse_vep_output, get_uniprot_seq, parse_hgvs_protein, mutate_sequence
 import os

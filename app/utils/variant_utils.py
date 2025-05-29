@@ -15,6 +15,7 @@ def process_variants(task_id, variants, tasks, file_path=None):
                     v['clinvar_data'] = clinvar_query.query_clinvar(rsid)
             except Exception as e:
                 print(f"[WARNING][{task_id}] ClinVar 注释失败: {e}")
+        tasks[task_id]['progress'] = 20
 
         # step2 : 计算RegulomeDB分数
         print(f"[INFO][{task_id}] 开始 RegulomeDB 注释")
@@ -34,6 +35,7 @@ def process_variants(task_id, variants, tasks, file_path=None):
                         })
             except Exception as e:
                 print(f"[WARNING][{task_id}] RegulomeDB 注释失败: {e}")
+        tasks[task_id]['progress'] = 40
 
         # step3: 计算蛋白质特征
         print(f"[INFO][{task_id}] 开始蛋白质理化性质计算")
@@ -47,7 +49,9 @@ def process_variants(task_id, variants, tasks, file_path=None):
                     )
             except Exception as e:
                 print(f"[WARNING][{task_id}] 蛋白质特征计算失败: {e}")
+        tasks[task_id]['progress'] = 60
 
+        # step4: 计算 PRS 风险评分
         prs_score = None
         prs_risk = None
         print(f"[INFO][{task_id}] 开始 PRS 风险评分计算")
@@ -63,6 +67,7 @@ def process_variants(task_id, variants, tasks, file_path=None):
             for v in variants:
                 v['prs_score'] = None
                 v['prs_risk'] = None
+        tasks[task_id]['progress'] = 80
 
         # 保存结果
         try:

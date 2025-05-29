@@ -28,7 +28,8 @@ def results_page():
         'task_status': 'pending',
         'prsScore': 0,
         'prsRisk': '未评估',
-        'variants': []
+        'variants': [],
+        'summary': {}
     }
 
     if not task_id:
@@ -44,7 +45,8 @@ def results_page():
         base_data.update({
             'prsScore': result.get('prs_score', 0),
             'prsRisk': result.get('prs_risk', '未知'),
-            'variants': result.get('variants', [])
+            'variants': result.get('variants', []),
+            'summary': result.get('summary', {})
         })
 
     return render_template('results.html', **base_data)
@@ -81,7 +83,7 @@ def upload_file():
     # thread in background 
     thread = threading.Thread(
         target=process_vcf_background,
-        args=(task_id, file_path)
+        args=(task_id, file_path, tasks)
         )
     thread.start()
 
@@ -162,8 +164,10 @@ def process_vcf_background(task_id, file_path, tasks):
     try:
         print(f"[INFO][{task_id}] 开始解析 VCF 文件: {file_path}")
         variants = process_upload.process_vcf(file_path)
+        tasks[task_id]['progress'] = 20
         print(f"[INFO][{task_id}] VCF 文件解析完成，变异数: {len(variants)}")
         process_variants(task_id, variants, tasks, file_path)
+        tasks[task_id]['progress'] = 100
 
     except Exception as e:
         print(f"[ERROR][{task_id}] 处理 VCF 时发生错误: {e}")
@@ -177,9 +181,11 @@ def process_rsid_background(task_id, rsid, tasks):
     try:
         print(f"[INFO][{task_id}] 开始处理 rsID : {rsid}")
         variants = process_upload.process_rsid(rsid)
+        tasks[task_id]['progress'] = 10
         print(f"[INFO][{task_id}] rsID 转换为变异记录完成")
 
         process_variants(task_id, variants, tasks, file_path=None)
+        tasks[task_id]['progress'] = 100
 
     except Exception as e:
         print(f"[ERROR][{task_id}] 处理 rsID 时发生错误: {e}")
