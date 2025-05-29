@@ -2,7 +2,6 @@ import pandas as pd
 
 # 读取 CSV 文件
 clinvar_df = pd.read_csv("data/clinvar/clinvar.csv", dtype=str)
-print(clinvar_df.columns)
 
 # 兼容处理
 clinvar_df.rename(columns={'CHROM': '#CHROM'}, inplace=True)
