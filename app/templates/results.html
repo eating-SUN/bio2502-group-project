@@ -121,62 +121,42 @@
     </nav>
 
 
-<!-- 结果展示区 --> 
-<div class="container mt-4" id="app" v-cloak>
-    <div class="card">
-        <div class="card-header bg-success text-white">
-            <h3 class="mb-0">分析结果</h3>
-        </div>
-        <script>
-                const SERVER_DATA = {
-                    initial_task_status: '{{ task_status|default("pending") }}',
-                    initial_prs_score: {{ prsScore|default(0) }},
-                    initial_prs_risk: '{{ prsRisk|default("未评估") }}',
-                    initial_variants: {{ variants|tojson|safe if variants else [] }}
-                };
-            </script>
-        <div class="card-body" >
-        <!-- 错误提示 -->
-        <div v-if="task_status === 'failed'" class="alert alert-danger">
-            ${ error_message }
-        </div>
-
-        
-        <template v-if="task_status === 'invalid'">
-            <div class="text-center py-5">
-                <div class="alert alert-danger">
-                    任务ID无效，请 <a href="${url_for('main.upload_page')}">上传文件</a>。
-                </div>
+<!-- 结果展示区 -->
+    <div class="container mt-4" id="app" v-cloak>
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h3 class="mb-0">分析结果</h3>
             </div>
-        </template>
+            <div class="card-body">
+                <!-- 错误提示 -->
+                <div v-if="task_status === 'failed'" class="alert alert-danger">
+                    {{ error_message }}
+                </div>
 
-        <!-- 加载状态 -->
-        <template v-else-if="!['completed', 'failed'].includes(task_status)">
-            <div class="text-center py-5">
-                <div class="spinner-border text-primary" role="status"></div>
-                <p class="mt-2">${ loadingStatusText }</p>
-                <div class="progress mt-3" style="height: 20px;">
-                    <div class="progress-bar progress-bar-striped" 
-                        :style="{ width: progress + '%' }">
-                        ${ progress }%
+                <!-- 加载状态 -->
+                <template v-if="task_status === 'pending'">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary"></div>
+                        <p class="mt-2">{{ loadingStatusText }}</p>
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped" :style="{ width: progress + '%' }"></div>
+                        </div>
                     </div>
-                </div>
-            </div>
-        </template>
+                </template>
 
         <!-- 完成状态 -->
         <template v-else-if="task_status === 'completed'">
             <!-- PRS评分 -->
             <div class="mb-4">
                 <h4>PRS评分: 
-                    <span class="text-primary">${ prs_score }</span> 
-                    <span class="badge" :class="riskBadgeClass">${ prs_risk }</span>
+                    <span class="text-primary">{{ prs_score }}</span>
+                    <span class="badge" :class="riskBadgeClass">{{ prs_risk }}</span>
                 </h4>
             </div>
 
             
             <!-- 分页控制 -->
-            <div class="row mb-3" v-if="task_status === 'completed'">
+            <div class="row mb-3" v-if="task_status === 'completed' && mergedData.length > 0">
                 <div class="col-md-6">
                     <div class="input-group">
                         <span class="input-group-text">每页显示</span>
@@ -193,8 +173,11 @@
                             <li class="page-item" :class="{disabled: currentPage === 1}">
                                 <button class="page-link" @click="currentPage--">&laquo;</button>
                             </li>
-                            <li class="page-item" v-for="page in totalPages" :key="page"
-                                :class="{active: currentPage === page}">
+                            <li class="page-item" 
+                                v-for="page in totalPages" 
+                                :key="page"
+                                :class="{active: currentPage === page}"
+                                v-if="page <= totalPages && page >= currentPage - 2 && page <= currentPage + 2">
                                 <button class="page-link" @click="currentPage = page">{{ page }}</button>
                             </li>
                             <li class="page-item" :class="{disabled: currentPage === totalPages}">
@@ -205,39 +188,51 @@
                 </div>
             </div>
 
-            <!-- 合并后的表格 -->
-            <div class="table-responsive">
-                <table class="table table-striped variant-table">
-                    <thead><!-- 保持原样 --></thead>
-                    <tbody>
-                        <tr v-for="(item, index) in mergedData" :key="index">
-                            <td>${ item.variant?.Chromosome || 'chrN/A' }</td>
-                            <td>${ item.variant?.Start || '-' }</td>
-                            <td class="text-monospace">${ item.variant?.Reference || '-' }</td>
-                            <td class="text-monospace text-danger">${ item.variant?.Alternate || '-' }</td>
-                            <td>
-                                <span class="badge bg-info">
-                                    ${ item.clinvar?.ClinicalSignificance || '未知' }
-                                </span>
-                            </td>
-                            <td>${ item.clinvar?.PhenotypeList || '-' }</td>
-                            <td>${ item.clinvar?.ReviewStatus || '-' }</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <!-- 图表容器 -->
-            <div class="row mb-4" v-if="task_status === 'completed'">
-                <div class="col-md-6">
-                    <div id="clinvarChart" class="chart-container"></div>
-                </div>
-                <div class="col-md-6">
-                    <div id="prsDistribution" class="chart-container"></div>
-                </div>
+            <!-- 变异表格 -->
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>染色体</th>
+                                    <th>起始位点</th>
+                                    <th>参考序列</th>
+                                    <th>变异位点</th>
+                                    <th>临床意义</th>
+                                    <th>表型列表</th>
+                                    <th>审核状态</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(item, index) in mergedData" :key="index">
+                                    <td>{{ item.variant.Chromosome|default('chrN/A') }}</td>
+                                    <td>{{ item.variant.Start|default('-') }}</td>
+                                    <td class="text-monospace">{{ item.variant.Reference|default('-') }}</td>
+                                    <td class="text-monospace text-danger">{{ item.variant.Alternate|default('-') }}</td>
+                                    <td>
+                                        <span class="badge bg-info">
+                                            {{ item.clinvar.ClinicalSignificance|default('未知') }}
+                                        </span>
+                                    </td>
+                                    <td>{{ item.clinvar.PhenotypeList|default('-') }}</td>      
+                                    <td>{{ item.clinvar.ReviewStatus | default('-') }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- 图表容器 -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div id="clinvarChart" class="chart-container"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <div id="prsDistribution" class="chart-container"></div>
+                        </div>
+                    </div>
+                </template>
             </div>
         </div>
     </div>
-</div>
 
 <!-- PDF下载按钮 -->
 <div class="container mt-4" id="PDFdownload" v-if="task_status === 'completed'">

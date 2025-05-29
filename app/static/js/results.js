@@ -1,16 +1,16 @@
-
 const ResultsApp = {
     delimiters: ['${', '}'],
     data() {
         return {
             currentPage: 1,
             pageSize: 10,
-            prs_score: SERVER_DATA.initial_prs_score,
-            prs_risk: SERVER_DATA.initial_prs_risk,
-            mergedData: SERVER_DATA.initial_variants,
+            prs_score: null,       // 初始化为null
+            prs_risk: null,        // 初始化为null
+            mergedData: [],        // 初始化为空数组
             taskId: null,
             progress: 0,
-            task_status: SERVER_DATA.initial_task_status,
+            task_status: 'pending', // 明确初始状态
+            error_message: null
         }
     },
     computed: {
@@ -24,7 +24,6 @@ const ResultsApp = {
             return statusMap[this.task_status] || '请稍候...'
         },
 
-
         riskBadgeClass() {
             return {
                 'bg-success': this.prsRisk === '低风险',
@@ -34,255 +33,153 @@ const ResultsApp = {
             }
         },
         totalPages() {
-            return Math.ceil(this.mergedData.length / this.pageSize);
+            return Math.ceil(this.mergedData.length / this.pageSize)
         },
         paginatedData() {
-            const start = (this.currentPage - 1) * this.pageSize;
-            return this.mergedData.slice(start, start + Number(this.pageSize));
+            const start = (this.currentPage - 1) * this.pageSize
+            return this.mergedData.slice(start, start + Number(this.pageSize))
         }
     },
     methods: {
         pollTaskStatus() {
-            const vm = this;
+            const vm = this
             function checkStatus() {
                 fetch(`/status/${vm.taskId}`)
-                    .then(res => res.json())
+                    .then(res => {
+                        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
+                        return res.json()
+                    })
                     .then(data => {
-                        // 强制更新视图
-                        vm.$set(vm, 'task_status', data.status);
-                        vm.progress = data.progress;
+                        console.log('[DEBUG] 状态更新:', data)
+                        vm.$set(vm, 'task_status', data.status)
+                        vm.$set(vm, 'progress', data.progress)
 
                         if (data.status === 'completed') {
-                            vm.initData(data.result);
+                            vm.initData(data.result)
                         } else if (data.status === 'failed') {
-                            vm.$set(vm, 'error_message', data.error_message);
+                            vm.$set(vm, 'error_message', data.error_message)
                         } else {
-                            setTimeout(checkStatus, 2500);
+                            setTimeout(checkStatus, 2500)
                         }
                     })
                     .catch(err => {
-                        console.error('轮询失败:', err);
-                        setTimeout(checkStatus, 5000);
-                    });
+                        console.error('轮询失败:', err)
+                        setTimeout(checkStatus, 5000)
+                    })
             }
-            checkStatus();
+            checkStatus()
         },
-        // 修改：增强数据初始化
+
         initData(resultData) {
-            if (!resultData) return;
+            if (!resultData?.variants?.length) {
+                this.error_message = '无有效分析数据';
+                return;
+            }
             
-            this.prsScore = resultData.summary?.prs_score ?? 'N/A';
-            this.prsRisk = resultData.summary?.prs_risk ?? '未评估';
-            
-            // 合并数据增加容错
+            console.log('[DEBUG] 初始化数据:', resultData)
+            if (!resultData) return
+
+            // 使用Vue.set确保响应式更新
+            this.$set(this, 'prs_score', resultData.summary?.prs_score ?? 'N/A')
+            this.$set(this, 'prs_risk', resultData.summary?.prs_risk ?? '未评估')
+
+            // 处理嵌套数据结构
             this.mergedData = (resultData.variants || []).map((variant, index) => ({
                 variant: variant.variant_info || {},
                 clinvar: (resultData.summary?.clinvar_data || [])[index] || {}
-            }));
+            }))
 
-            // 延迟渲染确保DOM更新
             this.$nextTick(() => {
                 try {
-                    renderCharts(resultData);
-                    document.getElementById('loadingMessage').classList.add('d-none');
-                    document.getElementById('resultsContent').classList.remove('d-none');
+                    this.renderCharts(resultData)
+                    document.getElementById('loadingMessage').classList.add('d-none')
+                    document.getElementById('resultsContent').classList.remove('d-none')
                 } catch (e) {
-                    console.error('图表渲染失败:', e);
+                    console.error('图表渲染失败:', e)
                 }
-            });
+            })
+        },
+
+        renderCharts(resultData) {
+            // ClinVar临床意义分布图
+            if (resultData.summary?.clinvar_data?.length) {
+                this.renderClinvarChart(resultData.summary.clinvar_data)
+            }
+
+            // PRS风险分布图
+            if (resultData.summary?.prs_risk) {
+                this.renderPRSDistribution(resultData.summary.prs_risk)
+            }
+        },
+
+        renderClinvarChart(clinvarData) {
+            const container = document.getElementById('clinvarChart')
+            if (!container || !clinvarData.length) {
+                container.innerHTML = '<div class="alert alert-secondary">无可用ClinVar数据</div>'
+                return
+            }
+
+            // 数据统计
+            const significanceCount = clinvarData.reduce((acc, cur) => {
+                const key = cur?.ClinicalSignificance || 'Unknown'
+                acc[key] = (acc[key] || 0) + 1
+                return acc
+            }, {})
+
+            // 图表配置
+            const data = [{
+                values: Object.values(significanceCount),
+                labels: Object.keys(significanceCount),
+                type: 'pie',
+                hole: 0.4,
+                marker: {
+                    colors: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
+                }
+            }]
+
+            const layout = {
+                title: 'ClinVar临床意义分布',
+                height: 300,
+                margin: { t: 40, b: 20 }
+            }
+            Plotly.newPlot('clinvarChart', data, layout)
+        },
+
+        renderPRSDistribution(riskLevel) {
+            // 使用实际数据替代模拟数据
+            const data = [{
+                x: ['低风险', '中等风险', '高风险'],
+                y: [
+                    resultData.summary.risk_distribution?.low || 0,
+                    resultData.summary.risk_distribution?.medium || 0,
+                    resultData.summary.risk_distribution?.high || 0
+                ],
+                type: 'bar',
+                marker: {
+                    color: ['#2ca02c', '#ff7f0e', '#d62728']
+                }
+            }]
+
+            const layout = {
+                title: 'PRS风险分布对比',
+                xaxis: { title: '风险等级' },
+                yaxis: { title: '百分比 (%)' },
+                height: 300
+            }
+            Plotly.newPlot('prsDistribution', data, layout)
         }
     },
-    mounted() { // 新增挂载逻辑
-        this.taskId = new URLSearchParams(window.location.search).get('task_id');
+    mounted() {
+        this.taskId = new URLSearchParams(window.location.search).get('task_id')
         if (this.taskId) {
-            this.pollTaskStatus();
+            this.pollTaskStatus()
         } else {
-            showError('无效的任务ID');
+            this.$set(this, 'error_message', '无效的任务ID')
         }
     }
-};
+}
 
 // 初始化Vue
 document.addEventListener('DOMContentLoaded', () => {
-    new Vue(ResultsApp).$mount('#app');
-});
-
-function renderClinvarChart(clinvarData) {
-    const container = document.getElementById('clinvarChart');
-    if (!container || !clinvarData?.length) {
-        container.innerHTML = '<div class="alert alert-secondary">无可用ClinVar数据</div>';
-        return;
-    }
-        // 数据统计
-    const significanceCount = clinvarData.reduce((acc, cur) => {
-        const key = cur?.ClinicalSignificance || 'Unknown';
-        acc[key] = (acc[key] || 0) + 1;
-        return acc;
-    }, {});
-
-    // 图表配置
-    const data = [{
-        values: Object.values(significanceCount),
-        labels: Object.keys(significanceCount),
-        type: 'pie',
-        hole: 0.4,
-        marker: {
-            colors: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
-        }
-    }];
-
-    const layout = {
-        title: 'ClinVar临床意义分布',
-        height: 300,
-        margin: { t: 40, b: 20 }
-    };
-    Plotly.newPlot('clinvarChart', data, layout);
-}
-
-
-
-
-// 错误处理函数
-function showResults(resultData) {
-    const app = new Vue(ResultsApp).$mount('#app');
-    app.initData(resultData);
-    // 解析关键数据
-
-    const clinvarData = resultData.summary?.clinvar_data || [];
-    const variants = resultData.variants || [];
-
-    // 构建ClinVar数据展示
-    const clinvarSection = document.getElementById('clinvarSection');
-    clinvarSection.innerHTML = '';
-
-    clinvarData.forEach((item, index) => {
-        if (!item) return;
-        const card = document.createElement('div');
-        card.className = 'card mb-3';
-        card.innerHTML = `
-            <div class="card-header bg-light">
-                <span class="badge bg-info">#${index + 1}</span>
-                ${item.ClinicalSignificance || '未知临床意义'}
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-4">
-                        <strong>参考编号：</strong> ${item.ReviewStatus || '-'}
-                    </div>
-                    <div class="col-md-8">
-                        <strong>相关表型：</strong> ${item.PhenotypeList?.join(', ') || '-'}
-                    </div>
-                </div>
-            </div>
-        `;
-        clinvarSection.appendChild(card);
-    });
-
-    // 构建变体表格
-    const tbody = document.getElementById('variantTableBody');
-  tbody.innerHTML = variants.length > 0 ? 
-    variants.map(variant => `
-      <tr>
-        <td>${variant.variant_info?.Chromosome || 'chrN/A'}</td>
-        <td>${variant.variant_info?.Start || '-'}</td>
-        <td class="text-monospace">${variant.variant_info?.Reference || '-'}</td>
-        <td class="text-monospace text-danger">${variant.variant_info?.Alternate || '-'}</td>
-      </tr>
-    `).join('') : 
-    `<tr><td colspan="4" class="text-center">未检测到有效变异</td></tr>`;
-    // 图表渲染
-    app.$nextTick(() => {
-    renderCharts(resultData);
-    document.getElementById('loadingMessage').style.display = 'none';
-    document.getElementById('resultsContainer').style.display = 'block';
-  });
-    // 显示结果容器
-    document.getElementById('loadingMessage').style.display = 'none';
-    document.getElementById('resultsContainer').style.display = 'block';
-}
-
-function handleMissingResults() {
-    const loadingMessage = document.getElementById('loadingMessage');
-    loadingMessage.innerHTML = `
-        <div class="alert alert-danger">
-            未找到分析结果，请<a href="/upload">重新上传</a>
-        </div>
-    `;
-}
-//
-function showError(message) {
-    const errorElement = document.getElementById('errorMessage');
-    errorElement.innerHTML = `
-        <div class="alert alert-danger d-flex align-items-center">
-            <i class="bi bi-exclamation-triangle-fill me-2"></i>
-            ${message}
-        </div>
-    `;
-    errorElement.classList.remove('d-none');
-    
-    // 5秒后自动隐藏
-    setTimeout(() => {
-        errorElement.classList.add('fade-out');
-        setTimeout(() => errorElement.classList.add('d-none'), 500);
-    }, 5000);
-}
-
-// 在results.js中添加图表渲染函数
-function renderCharts(resultData) {
-    // ClinVar临床意义分布图
-    renderClinvarChart(resultData.summary?.clinvar_data);
-    
-    // PRS风险分布图
-    renderPRSDistribution(resultData.summary?.prs_risk);
-}
-
-function renderClinvarChart(clinvarData) {
-    if (!clinvarData || clinvarData.length === 0) return;
-
-    // 数据统计
-    const significanceCount = clinvarData.reduce((acc, cur) => {
-        const key = cur?.ClinicalSignificance || 'Unknown';
-        acc[key] = (acc[key] || 0) + 1;
-        return acc;
-    }, {});
-
-    // 图表配置
-    const data = [{
-        values: Object.values(significanceCount),
-        labels: Object.keys(significanceCount),
-        type: 'pie',
-        hole: 0.4,
-        marker: {
-            colors: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
-        }
-    }];
-
-    const layout = {
-        title: 'ClinVar临床意义分布',
-        height: 300,
-        margin: { t: 40, b: 20 }
-    };
-
-    Plotly.newPlot('clinvarChart', data, layout);
-}
-
-function renderPRSDistribution(riskLevel) {
-    // 模拟风险分布数据
-    const data = [{
-        x: ['低风险', '中等风险', '高风险'],
-        y: [25, 50, 25], // 示例数据
-        type: 'bar',
-        marker: {
-            color: ['#2ca02c', '#ff7f0e', '#d62728']
-        }
-    }];
-
-    const layout = {
-        title: 'PRS风险分布对比',
-        xaxis: { title: '风险等级' },
-        yaxis: { title: '百分比 (%)' },
-        height: 300
-    };
-
-    Plotly.newPlot('prsDistribution', data, layout);
-}
+    new Vue(ResultsApp).$mount('#app')
+})
