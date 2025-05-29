@@ -1,4 +1,6 @@
 from cyvcf2 import VCF
+import clinvar_query
+import tempfile
 from app.utils.gene_to_protein import run_vep, parse_vep_output, get_uniprot_seq, parse_hgvs_protein, mutate_sequence
 import os
 import traceback
@@ -103,3 +105,42 @@ def process_vcf(vcf_path):
                 print(f"[DEBUG] 删除临时文件: {vep_output_file}")
             except Exception as e:
                 print(f"[WARNING] 无法删除临时文件 {vep_output_file}: {e}")
+
+
+def process_rsid(rsid):
+    try:
+        # Step 1: 查询 ClinVar 数据
+        print(f"[INFO] 查询 ClinVar 信息: {rsid}")
+        variant = clinvar_query.query_clinvar(rsid)
+        if not variant:
+            raise ValueError(f"ClinVar 查询失败，未找到 rsID: {rsid}")
+
+        chrom = variant.get("CHROM")
+        pos = variant.get("POS")
+        ref = variant.get("REF")
+        alt = variant.get("ALT")
+
+        if not all([chrom, pos, ref, alt]):
+            raise ValueError(f"ClinVar 信息不完整: {variant}")
+
+        # Step 2: 构建临时 VCF 文件
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".vcf", delete=False) as tmp_vcf:
+            tmp_vcf_path = tmp_vcf.name
+            print(f"[INFO] 构建临时 VCF 文件: {tmp_vcf_path}")
+
+            tmp_vcf.write("##fileformat=VCFv4.2\n")
+            tmp_vcf.write("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n")
+            tmp_vcf.write(f"{chrom}\t{pos}\t{rsid}\t{ref}\t{alt}\t.\t.\t.\n")
+
+        # Step 3: 调用 VCF 处理函数
+        variants = process_vcf(tmp_vcf_path)
+
+        # Step 4: 删除临时文件
+        os.remove(tmp_vcf_path)
+        print(f"[INFO] 删除临时 VCF 文件: {tmp_vcf_path}")
+
+        return variants
+
+    except Exception as e:
+        print(f"[ERROR] 处理 rsID {rsid} 出错: {e}")
+        raise

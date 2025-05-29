@@ -1,64 +1,87 @@
 import pandas as pd
 
-_seen_prs_unmatched = set()
+def compute_prs(variants, prs_file="data/prs/prs_breast_cancer.csv", verbose=True):
 
-def compute_prs(variants, verbose=True):
-    print(f"[INFO][compute_prs] 开始读取PRS数据文件...")
-    prs_df = pd.read_csv("data/prs/pgs000001.csv")
-    prs_df = prs_df.dropna(subset=['rsID', 'effect_allele', 'effect_weight'])
-    print(f"[INFO][compute_prs] PRS清理完成, 保留有效行数: {len(prs_df)}")
+    # 1. 加载PRS数据
+    try:
+        prs_df = pd.read_csv(prs_file)
+        required_cols = ['rsID', 'effect_allele', 'effect_weight']
+        prs_df = prs_df.dropna(subset=required_cols)
+        
+        if verbose:
+            print(f"[PRS] 加载 {len(prs_df)} 个乳腺癌风险位点 | 文件: {prs_file}")
+            if 'risk_allele_freq' in prs_df.columns:
+                print(f"[PRS] 检测到风险等位基因频率列")
+    except Exception as e:
+        raise RuntimeError(f"PRS文件加载失败: {e}")
 
+    # 2. 预处理变异数据：将所有VCF中的变异按rsID存入字典
+    var_dict = {
+        v['variant_info']['id'].lstrip('rs'): v['variant_info']
+        for v in variants 
+        if 'id' in v['variant_info']
+    }
+
+    # 3. 初始化PRS得分、匹配计数器
     score = 0.0
     matched_snps = 0
+    unmatched_snps = 0  # 新增：统计未匹配数量
 
-    # 构建字典，统一 rsID 格式
-    variant_dict = {}
-    for v in variants:
-        var_id = v['variant_info']['id']
-        if var_id.startswith('rs'):
-            var_id = var_id[2:]
-        variant_dict[var_id] = v['variant_info']
-
-    print(f"[INFO][compute_prs] 开始匹配PRS位点与样本变异...")
+    # 4. 遍历每个PRS权重位点进行匹配和计算
     for _, row in prs_df.iterrows():
         rsid = str(row['rsID']).lstrip('rs')
-        effect_allele = row['effect_allele']
-        weight = row['effect_weight']
-
-        if rsid in variant_dict:
-            genotype = variant_dict[rsid].get('genotype', '')
-            if not genotype:
-                if verbose:
-                    print(f"[WARNING][compute_prs] 变异 rs{rsid} 缺失基因型信息")
-                continue
-            dosage = genotype.count(effect_allele)
+        effect_allele = str(row['effect_allele'])
+        weight = float(row['effect_weight'])
+        
+        # 若VCF中无该rsID，记录未匹配数
+        if rsid not in var_dict:
+            unmatched_snps += 1
+            continue
+            
+        # 解析基因型并计算剂量
+        genotype = var_dict[rsid].get('genotype', '')
+        dosage = genotype.count(effect_allele)
+        
+        # 若存在匹配剂量则累计得分
+        if dosage > 0:
             score += dosage * weight
             matched_snps += 1
             if verbose:
-                print(f"[DEBUG][compute_prs] 匹配成功: rs{rsid}, 基因型 = {genotype}, 剂量 = {dosage}, 当前得分 = {score:.4f}")
-        else:
-            if rsid not in _seen_prs_unmatched:
-                if verbose:
-                    print(f"[WARNING][compute_prs] 未找到 rs{rsid} 的变异信息")
-                _seen_prs_unmatched.add(rsid)
+                freq = row.get('risk_allele_freq', 'NA')
+                print(f"[PRS] 匹配 rs{rsid}: 基因型={genotype} (剂量={dosage}) | "
+                      f"权重={weight} 频率={freq} | 累计得分={score:.2f}")
 
-    print(f"[INFO][compute_prs] 共匹配到 {matched_snps} 个PRS位点，总得分为 {score:.4f}")
-    return round(score, 4), matched_snps
+    # 5. 打印最终统计信息
+    final_score = round(score, 4)
+    if verbose:
+        print(f"[PRS] 最终得分: {final_score}")
+        print(f"[PRS] 匹配位点数: {matched_snps} | 未匹配位点数: {unmatched_snps} | 总PRS位点: {len(prs_df)}")
+    
+    return final_score, matched_snps
 
 
-def classify_risk(score, thresholds=[-1.0, 0.0, 1.0]):
-    print(f"[INFO][classify_risk] 开始根据得分分类风险，阈值: {thresholds}")
-    if score < thresholds[0]:
-        print(f"[DEBUG][classify_risk] 得分 {score} 小于阈值 {thresholds[0]}, 分类为 低风险")
-        return "低风险"
-    elif score < thresholds[1]:
-        print(f"[DEBUG][classify_risk] 得分 {score} 在阈值 {thresholds[0]} 和 {thresholds[1]} 之间, 分类为 中等风险")
-        return "中等风险"
-    elif score < thresholds[2]:
-        print(f"[DEBUG][classify_risk] 得分 {score} 在阈值 {thresholds[1]} 和 {thresholds[2]} 之间, 分类为 高风险")
-        return "高风险"
+def classify_risk(score, gender="female", verbose=True):
+
+    # 女性乳腺癌阈值 
+    thresholds = {
+        'female': [0.5, 1.0, 1.5],  # 低/中/高/极高
+        'male': [0.7, 1.2, 1.7]     # 男性乳腺癌较罕见
+    }
+    
+    current_thresholds = thresholds.get(gender.lower(), thresholds['female'])
+    
+    if verbose:
+        print(f"[PRS] 风险分类阈值: {current_thresholds} | 性别: {gender}")
+    
+    if score < current_thresholds[0]:
+        risk = "低风险"
+    elif score < current_thresholds[1]:
+        risk = "中等风险"
+    elif score < current_thresholds[2]:
+        risk = "高风险"
     else:
-        print(f"[DEBUG][classify_risk] 得分 {score} 大于等于阈值 {thresholds[2]}, 分类为 极高风险")
-        return "极高风险"
-
-
+        risk = "极高风险"
+    
+    if verbose:
+        print(f"[PRS] 得分 {score:.2f} → 分类: {risk}")
+    return risk
