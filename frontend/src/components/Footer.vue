@@ -1,0 +1,18 @@
+<template>
+  <footer class="bg-dark text-white py-4 mt-5">
+    <div class="container text-center">
+      <div class="row">
+        <div class="col-md-6">
+          <h5>研究团队</h5>
+          <p>上海交通大学bio2502课程小组<br>指导老师：吴茂英</p>
+        </div>
+        <div class="col-md-6">
+          <h5>联系方式</h5>
+          <p>email: contactinfo@sjtu.edu.cn<br>Tel: +86-010-12345678</p>
+        </div>
+      </div>
+      <hr class="bg-light">
+      <p class="mb-0">&copy; 2024 致病性变异分析系统</p>
+    </div>
+  </footer>
+</template>
