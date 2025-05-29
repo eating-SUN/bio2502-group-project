@@ -1,7 +1,8 @@
-import { createRouter, createWebHistory } from 'vue-router'
-import Home from '@/views/Home.vue'
-import Upload from '@/views/Upload.vue'
-import Results from '@/views/Results.vue'
+// router/index.ts
+import { createRouter, createWebHistory } from 'vue-router';
+import Home from '../views/Home.vue';
+import Upload from '../views/Upload.vue';
+import Results from '../views/Results.vue';
 
 const routes = [
   {
@@ -17,18 +18,16 @@ const routes = [
   {
     path: '/results',
     name: 'Results',
-    component: Results
-  },
-  // 重定向
-  {
-    path: '/index.html',
-    redirect: '/'
+    component: Results,
+    props: (route) => ({ 
+      task_id: route.query.task_id 
+    })
   }
-]
+];
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes
-})
+});
 
-export default router
+export default router;

@@ -127,11 +127,11 @@
 </template>
 
 <script>
-import NavBar from '@/components/NavBar.vue'
-import Footer from '@/components/Footer.vue'
-import ClinvarChart from '@/components/ClinvarChart.vue'
-import PrsDistributionChart from '@/components/PrsDistributionChart.vue'
-import axios from 'axios'
+import NavBar from '@components/NavBar.vue'
+import Footer from '@components/Footer.vue'
+import ClinvarChart from '@components/ClinvarChart.vue'
+import PrsDistributionChart from '@components/PrsDistributionChart.vue'
+import { getTaskStatus, getResults } from '@services/api' // 导入API函数
 
 export default {
   components: {
@@ -245,7 +245,8 @@ export default {
       
       try {
         // 获取任务状态
-        const statusResponse = await axios.get(`/api/status/${taskId}`)
+        const statusResponse = await getTaskStatus(taskId);
+        const response = await getResults(taskId);
         this.taskStatus = statusResponse.data.status
         this.progress = statusResponse.data.progress || 0
         

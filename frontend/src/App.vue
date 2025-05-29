@@ -1,13 +1,22 @@
 <template>
   <div id="app">
-    <!-- 路由视图容器 -->
+    <h1 v-if="showDebug">Vue 应用已加载</h1>
     <router-view />
   </div>
 </template>
 
 <script>
 export default {
-  name: 'App'
+  data() {
+    return {
+      showDebug: true
+    }
+  },
+  mounted() {
+    setTimeout(() => {
+      this.showDebug = false
+    }, 3000)
+  }
 }
 </script>
 

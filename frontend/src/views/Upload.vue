@@ -93,9 +93,10 @@
 </template>
 
 <script>
-import NavBar from '@/components/NavBar.vue'
-import Footer from '@/components/Footer.vue'
-import axios from 'axios';
+import NavBar from '@components/NavBar.vue'
+import Footer from '@components/Footer.vue'
+import { uploadFile, getTaskStatus, queryRsid } from '@services/api'; // 引入 api.js 
+
 
 export default {
   components: {
@@ -137,7 +138,7 @@ export default {
       this.progress = 0;
       this.uploadSuccess = '';
     },
-    async uploadFile() {
+    async submitFile() {
       if (!this.selectedFile) {
         this.uploadError = '请选择要上传的VCF文件';
         return;
@@ -155,19 +156,10 @@ export default {
       this.uploadSuccess = '';
 
       const formData = new FormData();
-      formData.append('file', this.selectedFile);
+      formData.append('file', this.file);
 
       try {
-        const response = await axios.post('/api/upload', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          },
-          onUploadProgress: (progressEvent) => {
-            if (progressEvent.lengthComputable) {
-              this.progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            }
-          }
-        });
+        const response = await uploadFile(formData); // 调用 api.js 中的 uploadFile 函数
 
         if (response.data.status === 'queued') {
           this.uploadSuccess = '文件上传成功，正在处理...';
@@ -197,9 +189,7 @@ export default {
       this.rsidError = '';
 
       try {
-        const response = await axios.post('/api/query_rsid', {
-          rsid: this.rsid
-        });
+        const response = await queryRsid({ rsid: this.rsid }); 
 
         if (response.data.status === 'queued') {
           this.taskId = response.data.task_id;
@@ -218,26 +208,23 @@ export default {
       if (this.progressInterval) {
         clearInterval(this.progressInterval);
       }
-      
+
       this.progressInterval = setInterval(() => {
         this.checkTaskStatus();
       }, 3000);
     },
     async checkTaskStatus() {
       if (!this.taskId) return;
-      
+
       try {
-        const response = await axios.get(`/api/status/${this.taskId}`);
+        const response = await getTaskStatus(this.taskId); // 调用 api.js 中的 getTaskStatus 函数
         const { status, progress } = response.data;
-        
+
         this.progress = progress;
-        
+
         if (status === 'completed') {
           clearInterval(this.progressInterval);
-          this.$router.push({ 
-            path: '/results', 
-            query: { task_id: this.taskId } 
-          });
+          this.$router.push({ path: '/results', query: { task_id: this.taskId } });
         } else if (status === 'failed') {
           clearInterval(this.progressInterval);
           this.uploadError = response.data.error_message || '任务处理失败';
@@ -245,14 +232,14 @@ export default {
       } catch (error) {
         console.error('获取任务状态失败:', error);
       }
-    }
+    },
   },
   beforeUnmount() {
     if (this.progressInterval) {
       clearInterval(this.progressInterval);
     }
-  }
-}
+  },
+};
 </script>
 
 <style scoped>

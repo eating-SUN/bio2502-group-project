@@ -16,7 +16,7 @@
           <div class="dna-container">
               <div class="circle-clip">
                   <svg class="rotating-svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
-                      <image :href="DNA_image" width="100%" height="100%" />
+                      <image :xlink:href="DNA_image" width="100%" height="100%" />
                   </svg>
               </div>
           </div>
@@ -111,9 +111,9 @@
 </template>
 
 <script>
-import NavBar from '@/components/NavBar.vue'
-import Footer from '@/components/Footer.vue'
-import DNA_image from '@/assets/medical-01.svg'
+import NavBar from '@components/NavBar.vue'
+import Footer from '@components/Footer.vue'
+import DNA_image from '@assets/medical-01.svg'
 
 export default {
   name: 'HomeView',
