@@ -15,7 +15,7 @@ def process_variants(task_id, variants, tasks, file_path=None):
                     v['clinvar_data'] = clinvar_query.query_clinvar(rsid)
             except Exception as e:
                 print(f"[WARNING][{task_id}] ClinVar 注释失败: {e}")
-        tasks[task_id]['progress'] = 20
+        tasks[task_id]['progress'] = 30
 
         # step2 : 计算RegulomeDB分数
         print(f"[INFO][{task_id}] 开始 RegulomeDB 注释")

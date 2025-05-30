@@ -21,6 +21,16 @@ def upload_file_api():
     file = request.files['file']
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
+    # 添加文件类型检查
+    if not file.filename.lower().endswith('.vcf'):
+        return jsonify({'error': 'Invalid file type'}), 400
+
+    # 添加文件大小限制
+    MAX_SIZE = 10 * 1024 * 1024  # 10MB
+    file.seek(0, os.SEEK_END)
+    if file.tell() > MAX_SIZE:
+        return jsonify({'error': 'File too large'}), 400
+    file.seek(0)
     
     # generate unique task id
     task_id = str(uuid.uuid4())
@@ -137,6 +147,7 @@ import traceback
 def process_vcf_background(task_id, file_path, tasks):
     try:
         print(f"[INFO][{task_id}] 开始解析 VCF 文件: {file_path}")
+        tasks[task_id]['progress'] = 10
         variants = process_upload.process_vcf(file_path)
         tasks[task_id]['progress'] = 20
         print(f"[INFO][{task_id}] VCF 文件解析完成，变异数: {len(variants)}")

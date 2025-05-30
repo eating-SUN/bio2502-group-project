@@ -96,7 +96,7 @@ def process_vcf(vcf_path):
     except Exception as e:
         print(f"[ERROR] 处理 VCF 出错: {e}")
         traceback.print_exc()
-        raise
+        raise RuntimeError(f"VCF处理失败: {str(e)}") from e
 
     finally:
         if os.path.exists(vep_output_file):
@@ -143,4 +143,4 @@ def process_rsid(rsid):
 
     except Exception as e:
         print(f"[ERROR] 处理 rsID {rsid} 出错: {e}")
-        raise
+        raise ValueError(f"处理 rsID{rsid} 出错: {e}")
