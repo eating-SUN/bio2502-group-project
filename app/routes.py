@@ -11,7 +11,6 @@ main = Blueprint('main', __name__)
 # save task status
 tasks = {}
 
-
 # 在 Flask 后端添加 API 路由
 @main.route('/api/upload', methods=['POST'])
 def upload_file_api():
@@ -34,6 +33,7 @@ def upload_file_api():
     
     # generate unique task id
     task_id = str(uuid.uuid4())
+    global UPLOAD_FOLDER
     UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     file_path = os.path.join(UPLOAD_FOLDER, f'{task_id}.vcf')
@@ -97,6 +97,11 @@ def query_rsid_api():
         return jsonify({'error': 'No JSON data provided'}), 400
     
     rsid = data.get('rsid')
+
+    # 修复：避免字典嵌套错误
+    if isinstance(rsid, dict) and 'rsid' in rsid:
+        rsid = rsid['rsid']
+
     if not rsid:
         return jsonify({'error': '缺少 rsID 参数'}), 400
 
@@ -106,7 +111,7 @@ def query_rsid_api():
         'progress': 0
     }
 
-    thread = threading.Thread(target=process_rsid_background, args=(rsid, task_id,tasks))
+    thread = threading.Thread(target=process_rsid_background, args=(task_id, rsid, tasks))
     thread.start()
 
     return jsonify({'status': 'queued', 'task_id': task_id}), 202
@@ -136,6 +141,23 @@ def get_results_api():
         'prsRisk': task.get('result', {}).get('prs_risk', '未知'),
         'variants': task.get('result', {}).get('variants', [])
     })
+
+# 添加前端路由 fallback
+@main.route('/', defaults={'path': ''})
+@main.route('/<path:path>')
+def catch_all(path):
+    return render_template('index.html')
+
+# 添加静态文件路由
+@main.route('/static/<path:filename>')
+def static_files(filename):
+    return send_from_directory('../static', filename)
+
+# 确保上传目录可访问
+@main.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
+
 # ----------------------------
 # Background task processing
 # ----------------------------
@@ -179,18 +201,4 @@ def process_rsid_background(task_id, rsid, tasks):
         tasks[task_id]['progress'] = 100
         tasks[task_id]['error_message'] = str(e)
 
-# 在文件底部添加前端路由 fallback
-@main.route('/', defaults={'path': ''})
-@main.route('/<path:path>')
-def catch_all(path):
-    return render_template('index.html')
 
-# 添加静态文件路由
-@main.route('/static/<path:filename>')
-def static_files(filename):
-    return send_from_directory('../static', filename)
-
-# 确保上传目录可访问
-@main.route('/uploads/<path:filename>')
-def uploaded_file(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename)

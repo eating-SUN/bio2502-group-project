@@ -115,22 +115,33 @@ def process_rsid(rsid):
         if not variant:
             raise ValueError(f"ClinVar 查询失败，未找到 rsID: {rsid}")
 
-        chrom = variant.get("CHROM")
-        pos = variant.get("POS")
-        ref = variant.get("REF")
-        alt = variant.get("ALT")
+        clinvar = variant.get("clinvar", {})
+        chrom = clinvar.get("Chromosome")
+        pos = clinvar.get("Start")
+        ref = clinvar.get("Ref")
+        alt = clinvar.get("Alt")
+
 
         if not all([chrom, pos, ref, alt]):
-            raise ValueError(f"ClinVar 信息不完整: {variant}")
+            print(f"ClinVar 信息不完整: {variant}")
 
         # Step 2: 构建临时 VCF 文件
         with tempfile.NamedTemporaryFile(mode="w", suffix=".vcf", delete=False) as tmp_vcf:
             tmp_vcf_path = tmp_vcf.name
             print(f"[INFO] 构建临时 VCF 文件: {tmp_vcf_path}")
 
+            # 必须确认 pos 是数字字符串
+            if pos is None or not str(pos).isdigit():
+                raise ValueError(f"无效的变异位置 pos: {pos}")
+
+            # 写入VCF头部，包含 contig 信息
             tmp_vcf.write("##fileformat=VCFv4.2\n")
+            tmp_vcf.write(f"##contig=<ID={chrom}>\n")
             tmp_vcf.write("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n")
+
+            # 写入变异记录
             tmp_vcf.write(f"{chrom}\t{pos}\t{rsid}\t{ref}\t{alt}\t.\t.\t.\n")
+
 
         # Step 3: 调用 VCF 处理函数
         variants = process_vcf(tmp_vcf_path)

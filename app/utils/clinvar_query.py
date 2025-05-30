@@ -1,63 +1,60 @@
-import pandas as pd
+import sqlite3
 
-# 读取 CSV 文件
-clinvar_df = pd.read_csv("data/clinvar/clinvar.csv", dtype=str)
-
-# 兼容处理
-clinvar_df.rename(columns={'CHROM': '#CHROM'}, inplace=True)
-
-# 构建 chrom_pos 索引
-if 'chrom_pos' not in clinvar_df.columns:
-    clinvar_df['chrom_pos'] = clinvar_df['CHROM'].astype(str) + ':' + clinvar_df['POS'].astype(str)
-
-# 构建 rsid 索引
-if 'rsid' not in clinvar_df.columns:
-    clinvar_df['rsid'] = clinvar_df['ID'].apply(lambda x: x if str(x).startswith('rs') else None)
+DB_PATH = "data/clinvar/variant_summary.db"
 
 def query_clinvar(variant_id):
     """
     支持三种查询方式：
-    1. 直接匹配ID列 (如 3385321)
-    2. 匹配rsID (如 rs121908936)
-    3. 匹配染色体位置 (如 1:66926)
+    1. 直接匹配 GeneID
+    2. 匹配 rsID（如 rs121908936）
+    3. 匹配染色体位置（如 1:66926）
     """
     try:
-        # 情况1：直接匹配ID
-        if variant_id in clinvar_df['ID'].values:
-            match = clinvar_df[clinvar_df['ID'] == variant_id]
-        
-        # 情况2：匹配rsID
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+
+        # 情况1：匹配 GeneID
+        if variant_id.isdigit():
+            cursor.execute("SELECT * FROM clinvar WHERE GeneID = ?", (variant_id,))
+            rows = cursor.fetchall()
+
+        # 情况2：匹配 rsID
         elif str(variant_id).startswith('rs'):
-            match = clinvar_df[clinvar_df['rsid'] == variant_id]
-        
-        # 情况3：匹配染色体位置
+            cursor.execute("SELECT * FROM clinvar WHERE rsid = ?", (variant_id,))
+            rows = cursor.fetchall()
+
+        # 情况3：匹配 CHR:POS
         elif ':' in str(variant_id):
-            chrom, pos = str(variant_id).split(':')
-            match = clinvar_df[
-                (clinvar_df['#CHROM'] == chrom) & 
-                (clinvar_df['POS'] == pos)
-            ]
+            chrom, pos = variant_id.split(':')
+            cursor.execute("SELECT * FROM clinvar WHERE Chromosome = ? AND Start = ?", (chrom, pos))
+            rows = cursor.fetchall()
+
         else:
+            rows = []
+
+        conn.close()
+
+        if not rows:
             return {'variant_id': variant_id, 'clinvar': None}
 
-        if match.empty:
-            return {'variant_id': variant_id, 'clinvar': None}
+        row = rows[0]
+        (GeneID, ClinicalSignificance, rsid, Chromosome, Start, Stop, ReferenceAlleleVCF, AlternateAlleleVCF) = row
 
-        best_match = match.iloc[0].to_dict()
         return {
             'variant_id': variant_id,
             'clinvar': {
-                'Chromosome': best_match['#CHROM'],
-                'Start': best_match['POS'],
-                'ID': best_match['ID'],
-                'ClinicalSignificance': best_match.get('CLNSIG', 'Unknown'),
-                'Gene': best_match.get('GENEINFO', 'Unknown').split('|')[0].split(':')[0],
-                'Phenotype': best_match.get('CLNDN', 'Unknown'),
+                'Chromosome': Chromosome,
+                'Start': Start,
+                'Stop': Stop,
+                'ID': rsid if rsid else 'NA',
+                'Ref': ReferenceAlleleVCF if ReferenceAlleleVCF else 'NA',
+                'Alt': AlternateAlleleVCF if AlternateAlleleVCF else 'NA',
+                'ClinicalSignificance': ClinicalSignificance if ClinicalSignificance else 'Unknown',
+                'Gene': GeneID if GeneID else 'Unknown',
             }
         }
 
     except Exception as e:
         print(f"[ERROR] 查询失败: {e}")
         return {'variant_id': variant_id, 'clinvar': None}
-
 
