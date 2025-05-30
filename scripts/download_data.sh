@@ -6,10 +6,10 @@ echo "Creating data directories..."
 mkdir -p data/clinvar data/prs data/regulome
 
 echo "Downloading ClinVar data..."
-wget -O data/clinvar/variant_summary.csv "https://drive.google.com/uc?export=download&id=1mJTxGRyyqFCJEjcgiDXm1fSmcX8F6tOK"
+wget -O data/clinvar/variant_summary.db "https://drive.google.com/uc?export=download&id=12FP1iDKnnPTwzVGui_AVLN_mvG4DHDhX"
 
 echo "Downloading PRS data..."
-wget -O data/prs/prs_breast_cancer.csv "https://drive.google.com/uc?export=download&id=1obMcLzymHHgyARh98W5X0G95pVpHdj9g"
+wget -O data/prs/prs_brca.db "https://drive.google.com/uc?export=download&id=1CSKb8HSuLYyZ9CzJ2lLvFih16AkXNz4-"
 
 echo "Downloading RegulomeDB data..."
 wget -O data/regulome/regulome_data.csv "https://drive.google.com/uc?export=download&id=10AZqrmK075atRYVSPliIb6LLuHQY7NgZ"
