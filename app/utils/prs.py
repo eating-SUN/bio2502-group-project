@@ -1,19 +1,27 @@
-import pandas as pd
+import sqlite3
 
-def compute_prs(variants, prs_file="data/prs/prs_breast_cancer.csv", verbose=True):
+def compute_prs(variants, prs_db="prs_brca.db", verbose=False):
 
-    # 1. 加载PRS数据
-    try:
-        prs_df = pd.read_csv(prs_file)
-        required_cols = ['rsID', 'effect_allele', 'effect_weight']
-        prs_df = prs_df.dropna(subset=required_cols)
-        
-        if verbose:
-            print(f"[PRS] 加载 {len(prs_df)} 个乳腺癌风险位点 | 文件: {prs_file}")
-            if 'risk_allele_freq' in prs_df.columns:
-                print(f"[PRS] 检测到风险等位基因频率列")
-    except Exception as e:
-        raise RuntimeError(f"PRS文件加载失败: {e}")
+    # 0. 从变异中提取rsID
+    rsids = [v['variant_info']['id'] for v in variants if 'id' in v['variant_info']]
+
+    if not rsids:
+        print("[PRS] 输入变异列表为空或无rsID")
+        return 0.0, 0
+    
+    # 1. 连接数据库查询PRS信息
+    conn = sqlite3.connect(prs_db)
+    placeholders = ",".join("?" for _ in rsids)
+    query = f"SELECT rsID, effect_allele, effect_weight, source FROM prs WHERE rsID IN ({placeholders})"
+    cursor = conn.execute(query, rsids)
+    prs_data = cursor.fetchall()
+    conn.close()
+
+    # 转成字典
+    prs_dict = {
+        row[0]: {'effect_allele': row[1], 'effect_weight': float(row[2]), 'source': row[3]}
+        for row in prs_data
+    }
 
     # 2. 预处理变异数据：将所有VCF中的变异按rsID存入字典
     var_dict = {
@@ -25,21 +33,20 @@ def compute_prs(variants, prs_file="data/prs/prs_breast_cancer.csv", verbose=Tru
     # 3. 初始化PRS得分、匹配计数器
     score = 0.0
     matched_snps = 0
-    unmatched_snps = 0  # 新增：统计未匹配数量
+    unmatched_snps = 0  
 
     # 4. 遍历每个PRS权重位点进行匹配和计算
-    for _, row in prs_df.iterrows():
-        rsid = str(row['rsID']).lstrip('rs')
-        effect_allele = str(row['effect_allele'])
-        weight = float(row['effect_weight'])
-        
-        # 若VCF中无该rsID，记录未匹配数
-        if rsid not in var_dict:
+    for rsid in rsids:
+        if rsid not in prs_dict:
             unmatched_snps += 1
             continue
-            
+        
         # 解析基因型并计算剂量
-        genotype = var_dict[rsid].get('genotype', '')
+        effect_allele = prs_dict[rsid]['effect_allele']
+        weight = prs_dict[rsid]['effect_weight']
+        source = prs_dict[rsid].get('source', 'NA')
+
+        genotype = var_dict.get(rsid, {}).get('genotype', '')
         dosage = genotype.count(effect_allele)
         
         # 若存在匹配剂量则累计得分
@@ -47,15 +54,12 @@ def compute_prs(variants, prs_file="data/prs/prs_breast_cancer.csv", verbose=Tru
             score += dosage * weight
             matched_snps += 1
             if verbose:
-                freq = row.get('risk_allele_freq', 'NA')
-                print(f"[PRS] 匹配 rs{rsid}: 基因型={genotype} (剂量={dosage}) | "
-                      f"权重={weight} 频率={freq} | 累计得分={score:.2f}")
+                print(f"[PRS] 匹配 {rsid}: 基因型={genotype} (剂量={dosage}) | 权重={weight} 来源={source} | 累计得分={score:.2f}")
 
     # 5. 打印最终统计信息
     final_score = round(score, 4)
-    if verbose:
-        print(f"[PRS] 最终得分: {final_score}")
-        print(f"[PRS] 匹配位点数: {matched_snps} | 未匹配位点数: {unmatched_snps} | 总PRS位点: {len(prs_df)}")
+    print(f"[PRS] 最终得分: {final_score}")
+    print(f"[PRS] 匹配位点数: {matched_snps} | 未匹配位点数: {unmatched_snps} | 总PRS位点: {len(rsids)}")
     
     return final_score, matched_snps
 
@@ -70,8 +74,7 @@ def classify_risk(score, gender="female", verbose=True):
     
     current_thresholds = thresholds.get(gender.lower(), thresholds['female'])
     
-    if verbose:
-        print(f"[PRS] 风险分类阈值: {current_thresholds} | 性别: {gender}")
+    print(f"[PRS] 风险分类阈值: {current_thresholds} | 性别: {gender}")
     
     if score < current_thresholds[0]:
         risk = "低风险"
@@ -82,6 +85,6 @@ def classify_risk(score, gender="female", verbose=True):
     else:
         risk = "极高风险"
     
-    if verbose:
-        print(f"[PRS] 得分 {score:.2f} → 分类: {risk}")
+
+    print(f"[PRS] 得分 {score:.2f} → 分类: {risk}")
     return risk
