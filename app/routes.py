@@ -4,56 +4,17 @@ import uuid
 import threading
 import os
 import traceback
+from flask import send_from_directory
 
 main = Blueprint('main', __name__)
 
 # save task status
 tasks = {}
 
-@main.route('/')
-def index():
-    return render_template('index.html')
 
-# upload page
-@main.route('/upload', methods=['GET'])
-def upload_page():
-    return render_template('upload.html')
-
-@main.route('/results', methods=['GET'])
-def results_page():
-    task_id = request.args.get('task_id')
-    
-    # 统一响应格式
-    base_data = {
-        'task_status': 'pending',
-        'prsScore': 0,
-        'prsRisk': '未评估',
-        'variants': [],
-        'summary': {}
-    }
-
-    if not task_id:
-        base_data['task_status'] = 'invalid'
-        return render_template('results.html', **base_data)
-
-    task = tasks.get(task_id, {})
-    status = task.get('status', 'invalid')
-    base_data['task_status'] = status
-
-    if status == 'completed':
-        result = task.get('result', {})
-        base_data.update({
-            'prsScore': result.get('prs_score', 0),
-            'prsRisk': result.get('prs_risk', '未知'),
-            'variants': result.get('variants', []),
-            'summary': result.get('summary', {})
-        })
-
-    return render_template('results.html', **base_data)
-
-# upload file
-@main.route('/upload', methods=['POST'])
-def upload_file():
+# 在 Flask 后端添加 API 路由
+@main.route('/api/upload', methods=['POST'])
+def upload_file_api():
     if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
     
@@ -83,15 +44,15 @@ def upload_file():
     # thread in background 
     thread = threading.Thread(
         target=process_vcf_background,
-        args=(task_id, file_path, tasks)
+        args=(task_id, file_path,tasks)
         )
     thread.start()
 
     return jsonify({'status': 'queued', 'task_id': task_id}), 202
 
 
-@main.route('/status/<task_id>', methods=['GET'])
-def get_task_status(task_id):
+@main.route('/api/status/<task_id>', methods=['GET'])
+def get_task_status_api(task_id):
     try:
         task = tasks.get(task_id)
         if not task:
@@ -118,26 +79,14 @@ def get_task_status(task_id):
         traceback.print_exc()  
         return jsonify({'error': '服务器内部错误，请查看终端日志'}), 500
 
-@main.route('/results', methods=['GET'])
-def results():
-    task_id = request.args.get('task_id')
-    if not task_id:
-        return "缺少任务ID参数", 400
 
-    task = tasks.get(task_id)
-    if not task or 'result' not in task:
-        return "任务ID无效或结果未生成", 404
-
-    if task['status'] != 'completed':
-        return "任务尚未完成，请稍后重试", 202
-
-    variants = task['result'].get('variants', [])
-    return render_template('results.html', variants=variants, task_id=task_id)
-
-
-@main.route('/query_rsid', methods=['POST'])
-def query_rsid():
-    rsid = request.form.get('rsid')
+@main.route('/api/query_rsid', methods=['POST'])
+def query_rsid_api():
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No JSON data provided'}), 400
+    
+    rsid = data.get('rsid')
     if not rsid:
         return jsonify({'error': '缺少 rsID 参数'}), 400
 
@@ -147,11 +96,36 @@ def query_rsid():
         'progress': 0
     }
 
-    thread = threading.Thread(target=process_rsid_background, args=(rsid, task_id))
+    thread = threading.Thread(target=process_rsid_background, args=(rsid, task_id,tasks))
     thread.start()
 
     return jsonify({'status': 'queued', 'task_id': task_id}), 202
 
+
+@main.route('/api/results', methods=['GET'])
+def get_results_api():
+    task_id = request.args.get('task_id')
+    if not task_id:
+        return jsonify({'error': '缺少任务ID参数'}), 400
+
+    task = tasks.get(task_id)
+    if not task:
+        return jsonify({'error': '任务ID无效'}), 404
+    
+    if task['status'] != 'completed':
+        return jsonify({
+            'task_status': task['status'],
+            'progress': task.get('progress', 0),
+            'message': '任务尚未完成'
+        }), 202
+    
+    # 返回结构化结果
+    return jsonify({
+        'task_status': 'completed',
+        'prsScore': task.get('result', {}).get('prs_score', 0),
+        'prsRisk': task.get('result', {}).get('prs_risk', '未知'),
+        'variants': task.get('result', {}).get('variants', [])
+    })
 # ----------------------------
 # Background task processing
 # ----------------------------
@@ -194,3 +168,18 @@ def process_rsid_background(task_id, rsid, tasks):
         tasks[task_id]['progress'] = 100
         tasks[task_id]['error_message'] = str(e)
 
+# 在文件底部添加前端路由 fallback
+@main.route('/', defaults={'path': ''})
+@main.route('/<path:path>')
+def catch_all(path):
+    return render_template('index.html')
+
+# 添加静态文件路由
+@main.route('/static/<path:filename>')
+def static_files(filename):
+    return send_from_directory('../static', filename)
+
+# 确保上传目录可访问
+@main.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
