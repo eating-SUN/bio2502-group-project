@@ -15,9 +15,9 @@
           <!-- DNA动画容器 -->
           <div class="dna-container">
               <div class="circle-clip">
-                  <svg class="rotating-svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
-                      <image :xlink:href="DNA_image" width="100%" height="100%" />
-                  </svg>
+           
+                   <DNA_image class="rotating-svg" />
+                   
               </div>
           </div>
 
@@ -119,13 +119,10 @@ export default {
   name: 'HomeView',
   components: {
     NavBar,
-    Footer
+    Footer,
+    DNA_image
   },
-  data() {
-    return {
-      DNA_image: DNA_image
-    }
-  }
+
 }
 </script>
 
@@ -135,27 +132,60 @@ export default {
     max-height: 50vh;         /* 最大高度50%视口高度 */
     margin: 10px auto;        /* 居中显示 */
     position: relative;
-    overflow: hidden;         /* 防止内容溢出 */
+    overflow: hidden;  
+    justify-content: center;
+    align-items: center; 
+    display: flex;      
 }
-
 .dna-container::before {
     content: "";
     display: block;
     padding-top: 100%;            /* 保持1:1比例 */
 }
 
-/* 动态调整子容器尺寸 */
 .circle-clip {
-    width: 50%;
-    max-width: 300px;                      
-    height: auto;             
-    position: absolute;
-    border-radius:50%;
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
     overflow: hidden;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
+    justify-content: center;
+    align-items: center;
+    position: relative;
 }
+
+.rotating-svg {
+  /* 关键设置 - 修复偏移和旋转中心 */
+  position: absolute;
+  top: 0%;
+  left: 0%;
+  
+  /* 初始位置补偿 */
+  transform: 
+    translate(-50%, -50%)  /* 将中心点移动到容器中心 */
+    rotate(0deg);
+  
+  /* 尺寸调整 */
+  width: 100%;
+  height: 100%;
+  
+  /* 旋转中心和动画 */
+  transform-origin: center center;
+  animation: dna-rotate 5s linear infinite;
+  
+  /* 确保图像完整显示 */
+  object-fit: contain;
+  
+
+}
+
+@keyframes dna-rotate {
+    0% { transform: rotate(0deg); }
+    25% { transform: rotate(20deg); }
+    75% { transform: rotate(-20deg); }
+    100% { transform: rotate(0deg); }
+}
+
+
 
 
 /* 响应式优化 */
@@ -173,19 +203,6 @@ export default {
 .text-decoration-none:hover {
   text-decoration: underline !important;
   color: #6a11cb;
-}
-
-.rotating-svg {
-    width: 100%;
-    height: 100%;
-    animation: dna-rotate 5s linear infinite;
-}
-
-@keyframes dna-rotate {
-    0% { transform: translateX(0) rotate(0deg); }
-    25% { transform: translateX(0) rotate(20deg); }
-    75% { transform: translateX(0) rotate(-20deg); }
-    100% { transform: translateX(0) rotate(0deg); }
 }
 
 

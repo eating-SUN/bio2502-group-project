@@ -7,7 +7,7 @@
       <div class="card card-spacing form-section">
         <div class="card-header bg-info text-white">上传VCF文件</div>
         <div class="card-body">
-          <form @submit.prevent="uploadFile"> 
+          <form @submit.prevent="submitFile"> 
             <input 
               type="file" 
               id="vcfFile" 
@@ -149,14 +149,17 @@ export default {
         this.uploadError = `文件大小不能超过 ${MAX_FILE_SIZE / (1024 * 1024)} MB`;
         return;
       }
-
+      if (!this.selectedFile.name.toLowerCase().endsWith('.vcf')) {
+        this.uploadError = '仅支持 .vcf 文件';
+        return;
+      }
       this.isUploading = true;
       this.showUploadProgress = true;
       this.uploadError = '';
       this.uploadSuccess = '';
 
       const formData = new FormData();
-      formData.append('file', this.file);
+      formData.append('file', this.selectedFile);
 
       try {
         const response = await uploadFile(formData); // 调用 api.js 中的 uploadFile 函数
@@ -169,9 +172,15 @@ export default {
           this.uploadError = '上传失败，请重试';
         }
       } catch (error) {
-        console.error('上传失败:', error);
-        this.uploadError = error.response?.data?.error || '上传失败，请检查网络连接';
-      } finally {
+        if (error.response?.status === 400) {
+          this.uploadError = '上传失败: ' + 
+            (error.response.data?.error || '无效的文件');
+        } else {
+          this.uploadError = '上传失败: ' + 
+            (error.message || '网络错误');
+        }
+      }
+      finally {
         this.isUploading = false;
       }
     },

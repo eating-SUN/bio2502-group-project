@@ -131,6 +131,7 @@ import NavBar from '@components/NavBar.vue'
 import Footer from '@components/Footer.vue'
 import ClinvarChart from '@components/ClinvarChart.vue'
 import PrsDistributionChart from '@components/PrsDistributionChart.vue'
+import axios from 'axios'; // 添加 axios 导入
 import { getTaskStatus, getResults } from '@services/api' // 导入API函数
 
 export default {
@@ -244,17 +245,15 @@ export default {
       }
       
       try {
-        // 获取任务状态
+        // 使用导入的 getTaskStatus 方法
         const statusResponse = await getTaskStatus(taskId);
-        const response = await getResults(taskId);
         this.taskStatus = statusResponse.data.status
         this.progress = statusResponse.data.progress || 0
         
         if (this.taskStatus === 'pending') {
-          // 如果任务还在处理中，设置轮询
           this.pollTaskStatus(taskId)
         } else if (this.taskStatus === 'completed') {
-          // 如果任务已完成，获取结果
+          // 使用导入的 getResults 方法
           await this.fetchTaskResults(taskId)
         } else if (this.taskStatus === 'failed') {
           this.errorMessage = statusResponse.data.error_message || '任务处理失败'
@@ -268,7 +267,8 @@ export default {
     pollTaskStatus(taskId) {
       const interval = setInterval(async () => {
         try {
-          const response = await axios.get(`/api/status/${taskId}`)
+          // 使用导入的 getTaskStatus 方法
+          const response = await getTaskStatus(taskId)
           this.taskStatus = response.data.status
           this.progress = response.data.progress || 0
           this.loadingStatusText = this.getLoadingStatusText(response.data.status)
@@ -290,7 +290,8 @@ export default {
     },
     async fetchTaskResults(taskId) {
       try {
-        const response = await axios.get(`/api/results?task_id=${taskId}`)
+        // 使用导入的 getResults 方法
+        const response = await getResults(taskId)
         this.prsScore = response.data.prsScore
         this.prsRisk = response.data.prsRisk
         this.mergedData = response.data.variants || []
