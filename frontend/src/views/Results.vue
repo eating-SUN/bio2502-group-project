@@ -217,9 +217,15 @@
 
     <!-- PDF下载按钮 -->
     <div class="container mt-4 text-center" v-if="taskStatus === 'completed'">
-      <button @click="downloadReport" class="btn btn-warning btn-lg">
-        <i class="bi bi-download me-2"></i>生成PDF报告
-      </button>
+        <button @click="downloadReport" class="btn btn-warning btn-lg" :disabled="isGeneratingPDF">
+          <template v-if="isGeneratingPDF">
+            <span class="spinner-border spinner-border-sm"></span>
+            生成中...
+          </template>
+          <template v-else>
+            <i class="bi bi-download me-2"></i>生成PDF报告
+          </template>
+        </button>
     </div>
     
     <Footer />
@@ -252,7 +258,8 @@ export default {
       riskBadgeClass: 'bg-secondary',
       mergedData: [],
       currentPage: 1,
-      pageSize: 10
+      pageSize: 10,
+      isGeneratingPDF: false
     }
   },
   computed: {
@@ -460,14 +467,34 @@ export default {
       return statusMap[status] || '正在处理...'
     },
     downloadReport() {
-      const taskId = this.$route.query.task_id
+      const taskId = this.$route.query.task_id;
       if (!taskId) {
-        alert('无法生成报告：缺少任务ID')
-        return
+        alert('无法生成报告：缺少任务ID');
+        return;
       }
       
-      alert('PDF报告生成功能将在后端实现')
+      // 显示加载状态
+      this.isGeneratingPDF = true;
+      
+      axios.get(`/api/report?task_id=${taskId}`, {
+        responseType: 'blob'
+      }).then(response => {
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `dna_report_${taskId}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }).catch(error => {
+        console.error('下载报告失败:', error);
+        alert('报告生成失败，请重试');
+      }).finally(() => {
+        this.isGeneratingPDF = false;
+      });
     },
+      
+  
     processProteinData() {
       this.mergedData.forEach(item => {
         if (item.protein_info) {
