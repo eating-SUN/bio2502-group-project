@@ -137,8 +137,8 @@ def get_results_api():
     # 返回结构化结果
     return jsonify({
         'task_status': 'completed',
-        'prsScore': task.get('result', {}).get('prs_score', 0),
-        'prsRisk': task.get('result', {}).get('prs_risk', '未知'),
+        'prsScore': task.get('result', {}).get('summary',{}).get('prs_score',0.0),
+        'prsRisk': task.get('result', {}).get('summary',{}).get('prs_risk', '未知'),
         'variants': task.get('result', {}).get('variants', [])
     })
 
