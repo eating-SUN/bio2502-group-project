@@ -151,6 +151,7 @@ export default {
     justify-content: center;
     align-items: center;
     position: relative;
+    margin:10px auto;
 }
 
 .rotating-svg {
@@ -174,8 +175,6 @@ export default {
   
   /* 确保图像完整显示 */
   object-fit: contain;
-  
-
 }
 
 @keyframes dna-rotate {
