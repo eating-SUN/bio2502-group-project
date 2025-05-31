@@ -5,7 +5,7 @@ from app.utils.gene_to_protein import run_vep, parse_vep_output, get_uniprot_seq
 import os
 import traceback
 
-def process_vcf(vcf_path):
+def process_vcf(vcf_path, verbose=True):
     vep_output_file = f"{vcf_path}.tsv"
     variants = []
 
@@ -46,31 +46,44 @@ def process_vcf(vcf_path):
         print(f"[DEBUG] 解析 VEP 注释结果，共获得 {len(annotated_variants)} 条注释")
 
         protein_info_dict = {}
+        # 检查每条是否包含蛋白信息
         for v in annotated_variants:
+            if verbose:
+                print(f"[DEBUG] 注释: id={v.get('id')}, hgvs_p={v.get('hgvs_p')}, protein_id={v.get('protein_id')}")
             var_id = v['id']
             if var_id not in variant_dict:
-                print(f"[WARNING] VEP 注释 ID 未在 VCF 中找到: {var_id}")
+                if verbose:
+                    print(f"[WARNING] VEP 注释 ID 未在 VCF 中找到: {var_id}")
                 continue
 
             hgvs_p = v.get('hgvs_p')
             protein_id = v.get('protein_id')
+
+            # 检查蛋白ID和HGVS是否存在
             if not hgvs_p or not protein_id:
+                if verbose:
+                    print(f"[DEBUG] 缺少 protein_id 或 hgvs_p: hgvs_p={hgvs_p}, protein_id={protein_id}")
                 continue
 
+            # 检查是否能获取蛋白序列
             seq = get_uniprot_seq(protein_id)
             if not seq:
-                print(f"[WARNING] 无法获取 UniProt 序列: {protein_id}")
+                if verbose:
+                    print(f"[WARNING] 无法获取 UniProt 序列: {protein_id}")
                 continue
 
+            # 检查 HGVS 是否能解析
             ref_aa, pos, alt_aa = parse_hgvs_protein(hgvs_p)
             if None in (ref_aa, pos, alt_aa):
                 print(f"[WARNING] HGVS 解析失败: {hgvs_p}")
                 continue
 
+            # 检查突变位置是否合理
             if pos < 1 or pos > len(seq):
                 print(f"[WARNING] 无效突变位置: 序列长度={len(seq)}, 位置={pos}")
                 continue
 
+            # 检查突变后序列
             mut_seq = mutate_sequence(seq, pos, alt_aa)
             if not mut_seq:
                 print(f"[WARNING] 突变序列生成失败: {hgvs_p}")
@@ -88,6 +101,11 @@ def process_vcf(vcf_path):
             entry = {'variant_info': info}
             if var_id in protein_info_dict:
                 entry['protein_info'] = protein_info_dict[var_id]
+                if verbose:
+                    print(f"[DEBUG] 添加 protein_info 到 variant: {var_id}")
+            else:
+                if verbose:
+                    print(f"[DEBUG] 未找到 protein_info: {var_id}")
             variants.append(entry)
 
         print(f"[DEBUG] 整合完成，返回 {len(variants)} 条变异记录（含蛋白变异 {len(protein_info_dict)} 条）")

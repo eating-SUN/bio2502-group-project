@@ -1,6 +1,6 @@
 import sqlite3
 
-def query_score(position, db_path='./data/regulome/regulome.db'):
+def query_score(position, db_path='./data/regulome/regulome.db', verbose=False):
     try:
         rsid = position.get('rsid')
         chrom = position.get('chrom')
@@ -8,7 +8,8 @@ def query_score(position, db_path='./data/regulome/regulome.db'):
         end = position.get('end')
 
         key = rsid if rsid else f"{chrom}:{start}-{end}"
-        print(f"[INFO][query_score] 查询位点 {key} 的 RegulomeDB 注释...")
+        if verbose:
+            print(f"[INFO][query_score] 查询位点 {key} 的 RegulomeDB 注释...")
 
         # 在当前线程中打开数据库连接
         conn = sqlite3.connect(db_path)
@@ -22,14 +23,16 @@ def query_score(position, db_path='./data/regulome/regulome.db'):
                 (chrom, start, end)
             )
         else:
-            print(f"[WARNING][query_score] 位点信息不完整: {position}")
+            if verbose:
+                print(f"[WARNING][query_score] 位点信息不完整: {position}")
             return 'Invalid input'
 
         row = cursor.fetchone()
         conn.close()
 
         if not row:
-            print(f"[INFO][query_score] RegulomeDB 无匹配记录: {key}")
+            if verbose:
+                print(f"[INFO][query_score] RegulomeDB 无匹配记录: {key}")
             return 'Not Found'
 
         score_info = {
@@ -40,11 +43,13 @@ def query_score(position, db_path='./data/regulome/regulome.db'):
             'ranking': row[4],
             'probability_score': row[5]
         }
-        print(f"[INFO][query_score] 成功找到 {key} 的注释: {score_info}")
+        if verbose:
+            print(f"[INFO][query_score] 成功找到 {key} 的注释: {score_info}")
         return score_info
 
     except Exception as e:
-        print(f"[ERROR][query_score] 查询失败: {e}")
+        if verbose:
+            print(f"[ERROR][query_score] 查询失败: {e}")
         return 'Error'
 
 

@@ -14,16 +14,15 @@ def run_vep(input_vcf, output_file):
     print("[DEBUG] 输出文件名:", output_name)
 
     cmd = [
-        "perl", "/mnt/c/Users/10188/bio2502project/ensembl-vep/vep",
+        "perl", "/home/zhangyixuan/course/bio2502/bio2502project/ensembl-vep/vep",
         "-i", input_vcf,
         "--cache",
         "--offline",
-        "--dir_cache", "/mnt/c/Users/10188/bio2502project/.vep",
+        "--dir_cache", "/home/zhangyixuan/course/bio2502/bio2502project/.vep",
         "--assembly", "GRCh38",
-        "--format", "vcf",
         "--symbol",
         "--uniprot",
-        "--fasta", "/mnt/c/Users/10188/bio2502project/data/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
+        "--fasta", "/home/zhangyixuan/course/bio2502/bio2502project/data/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
         "--hgvs",
         "--protein",
         "--no_stats",
@@ -34,15 +33,12 @@ def run_vep(input_vcf, output_file):
         "--force_overwrite"
  ]
     
-    print("[DEBUG] 执行命令:", " ".join(cmd))
-    
     try:
         result = subprocess.run(cmd, cwd=output_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         
         output_path = os.path.join(output_dir, output_name)
         if os.path.exists(output_path):
             print("[DEBUG] 输出文件已创建，大小:", os.path.getsize(output_path))
-            print("[DEBUG] 当前工作目录:", os.getcwd())
             print("[DEBUG] 输出目录文件列表:", os.listdir(output_dir))
         else:
             print("[ERROR] 输出文件未创建！")

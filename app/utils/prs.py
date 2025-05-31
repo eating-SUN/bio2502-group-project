@@ -1,6 +1,6 @@
 import sqlite3
 
-def compute_prs(variants, prs_db="data/prs/prs_brca.db", verbose=True):
+def compute_prs(variants, prs_db="data/prs/prs_brca.db", verbose=False):
 
     # 0. 从变异中提取rsID
     rsids = [v['variant_info']['id'] for v in variants if 'id' in v['variant_info']]
@@ -64,7 +64,7 @@ def compute_prs(variants, prs_db="data/prs/prs_brca.db", verbose=True):
     return final_score, matched_snps
 
 
-def classify_risk(score, gender="female", verbose=True):
+def classify_risk(score, gender="female"):
 
     # 女性乳腺癌阈值 
     thresholds = {
