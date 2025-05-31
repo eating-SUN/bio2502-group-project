@@ -1,49 +1,51 @@
-import pandas as pd
+import sqlite3
 
-reg_df = pd.read_csv('./data/regulome/regulome_data.csv')
-_seen_reg_unmatched = set()
-
-def query_score(position):
+def query_score(position, db_path='./data/regulome/regulome.db'):
     try:
+        rsid = position.get('rsid')
         chrom = position.get('chrom')
         start = position.get('start')
         end = position.get('end')
-        key = f"{chrom}:{start}-{end}"
 
-        print(f"[INFO][query_score] 开始查询位点 {key} 的 RegulomeDB 注释...")
+        key = rsid if rsid else f"{chrom}:{start}-{end}"
+        print(f"[INFO][query_score] 查询位点 {key} 的 RegulomeDB 注释...")
 
-        if None in (chrom, start, end):
-            print(f"[WARNING][query_score] 输入字段不完整: {position}")
+        # 在当前线程中打开数据库连接
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        if rsid:
+            cursor.execute("SELECT chrom, start, end, rsid, ranking, score FROM regulome WHERE rsid = ?", (rsid,))
+        elif None not in (chrom, start, end):
+            cursor.execute(
+                "SELECT chrom, start, end, rsid, ranking, score FROM regulome WHERE chrom = ? AND start = ? AND end = ?",
+                (chrom, start, end)
+            )
+        else:
+            print(f"[WARNING][query_score] 位点信息不完整: {position}")
             return 'Invalid input'
 
-        match = reg_df[
-            (reg_df['chrom'] == chrom) &
-            (reg_df['start'] == start) &
-            (reg_df['end'] == end)
-        ]
+        row = cursor.fetchone()
+        conn.close()
 
-        if match.empty:
-            if key not in _seen_reg_unmatched:
-                print(f"[INFO][query_score] RegulomeDB 无匹配记录: {key}")
-                _seen_reg_unmatched.add(key)
-            else:
-                print(f"[DEBUG][query_score] 位点 {key} 已查询过，仍未找到，跳过重复日志")
+        if not row:
+            print(f"[INFO][query_score] RegulomeDB 无匹配记录: {key}")
             return 'Not Found'
 
-        row = match.iloc[0]
         score_info = {
-            'chrom': row['chrom'],
-            'start': row['start'],
-            'end': row['end'],
-            'rsid': row['rsid'],
-            'ranking': row['ranking'],
-            'probability_score': row['probability_score'],
+            'chrom': row[0],
+            'start': row[1],
+            'end': row[2],
+            'rsid': row[3],
+            'ranking': row[4],
+            'probability_score': row[5]
         }
-        print(f"[INFO][query_score] 成功找到 {key} 的 RegulomeDB 注释: {score_info}")
+        print(f"[INFO][query_score] 成功找到 {key} 的注释: {score_info}")
         return score_info
 
     except Exception as e:
         print(f"[ERROR][query_score] 查询失败: {e}")
         return 'Error'
+
 
 

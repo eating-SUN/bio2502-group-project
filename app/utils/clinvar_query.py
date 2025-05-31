@@ -35,25 +35,22 @@ def query_clinvar(variant_id):
         conn.close()
 
         if not rows:
-            return {'variant_id': variant_id, 'clinvar': None}
+            return None
 
         row = rows[0]
         (GeneID, ClinicalSignificance, rsid, Chromosome, Start, Stop, ReferenceAlleleVCF, AlternateAlleleVCF) = row
 
-        return {
-            'variant_id': variant_id,
-            'clinvar': {
-                'Chromosome': Chromosome,
-                'Start': Start,
-                'Stop': Stop,
-                'ID': rsid if rsid else 'NA',
-                'Ref': ReferenceAlleleVCF if ReferenceAlleleVCF else 'NA',
-                'Alt': AlternateAlleleVCF if AlternateAlleleVCF else 'NA',
-                'ClinicalSignificance': ClinicalSignificance if ClinicalSignificance else 'Unknown',
-                'Gene': GeneID if GeneID else 'Unknown',
-            }
+        return{
+            'Chromosome': Chromosome,
+            'Start': Start,
+            'Stop': Stop,
+            'ID': rsid if rsid else 'NA',
+            'Ref': ReferenceAlleleVCF if ReferenceAlleleVCF else 'NA',
+            'Alt': AlternateAlleleVCF if AlternateAlleleVCF else 'NA',
+            'ClinicalSignificance': ClinicalSignificance if ClinicalSignificance else 'Unknown',
+            'Gene': GeneID if GeneID else 'Unknown',
         }
-
+        
     except Exception as e:
         print(f"[ERROR] 查询失败: {e}")
         return {'variant_id': variant_id, 'clinvar': None}

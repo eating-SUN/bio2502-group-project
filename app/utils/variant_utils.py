@@ -7,34 +7,65 @@ def process_variants(task_id, variants, tasks, file_path=None):
     try:
         # step1: 注释 ClinVar
         print(f"[INFO][{task_id}] 开始 ClinVar 注释")
+        success_count = 0
+        fail_count = 0
+        
         for v in variants:
             try:
                 if 'variant_info' in v:
                     rsid = v['variant_info']['id']
-                    print(f"[INFO][{task_id}] 查询 ClinVar: {rsid}")
-                    v['clinvar_data'] = clinvar_query.query_clinvar(rsid)
+                    result = clinvar_query.query_clinvar(rsid)
+                    if result:
+                        v['clinvar_data'] = result
+                        success_count += 1
+                    else:
+                        fail_count += 1
+                else:
+                    fail_count += 1
             except Exception as e:
                 print(f"[WARNING][{task_id}] ClinVar 注释失败: {e}")
+                fail_count += 1
+
+        print(f"[INFO][{task_id}] ClinVar 注释完成，成功注释: {success_count} 条，未注释: {fail_count} 条")
         tasks[task_id]['progress'] = 30
 
         # step2 : 计算RegulomeDB分数
         print(f"[INFO][{task_id}] 开始 RegulomeDB 注释")
+        matched_count = 0
+        unmatched_count = 0
+
         for v in variants:
             try:
                 clinvar = v.get('clinvar_data')
+                print(f"[DEBUG][{task_id}] 返回的ClinVar数据: {clinvar}")
                 if clinvar:
+                    rsid = clinvar.get('ID')
                     chrom = clinvar.get('Chromosome')
                     start = clinvar.get('Start')
                     end = clinvar.get('Stop')
+                    print(f"[DEBUG][{task_id}] 待匹配位点: rsid={rsid}, chrom={chrom}, start={start}, end={end}")
+                    pos_info = {}
+                    if rsid and rsid != 'NA':
+                        pos_info['rsid'] = rsid
                     if chrom and start and end:
-                        print(f"[INFO][{task_id}] 查询 RegulomeDB: {chrom}:{start}-{end}")
-                        v['regulome_score'] = regulome.query_score({
-                            'chrom': chrom,
-                            'start': start,
-                            'end': end
-                        })
+                        pos_info.update({'chrom': chrom, 'start': start, 'end': end})
+                    
+                    if pos_info:
+                        score = regulome.query_score(pos_info)
+                        v['regulome_score'] = score
+                        if score != 'Not Found' and score != 'Invalid input' and score != 'Error':
+                            matched_count += 1
+                        else:
+                            unmatched_count += 1
+                    else:
+                        unmatched_count += 1
+                else:
+                    unmatched_count += 1
             except Exception as e:
                 print(f"[WARNING][{task_id}] RegulomeDB 注释失败: {e}")
+                unmatched_count += 1
+
+        print(f"[INFO][{task_id}] RegulomeDB 注释完成，匹配成功: {matched_count}，未匹配: {unmatched_count}")
         tasks[task_id]['progress'] = 40
 
         # step3: 计算蛋白质特征
