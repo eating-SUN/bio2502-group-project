@@ -100,11 +100,11 @@
                     <td class="text-monospace text-danger">{{ item.variant_info.alt || '-' }}</td>
                     <td class="text-monospace">{{ item.variant_info.genotype || '-' }}</td>
                     <td>
-                      <span class="badge" :class="getClinicalClass(item.clinvar_data?.clinvar?.ClinicalSignificance)">
-                        {{ item.clinvar_data?.clinvar?.ClinicalSignificance || '未知' }}
+                      <span class="badge" :class="getClinicalClass(item.clinvar_data?.ClinicalSignificance)">
+                        {{ item.clinvar_data?.ClinicalSignificance || '未知' }}
                       </span>
                     </td>
-                    <td>{{ item.clinvar_data?.clinvar?.Gene || '-' }}</td>
+                    <td>{{ item.clinvar_data?.Gene || '-' }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -128,9 +128,6 @@
                           </a>
                         </p>
                         <p><strong>HGVS.p:</strong> {{ item.protein_info.hgvs_p }}</p>
-                        <p v-if="item.protein_info.mut_pos">
-                          <strong>突变位置:</strong> {{ item.protein_info.mut_pos }}
-                        </p>
                       </div>
                       
                       <div class="col-md-8">
