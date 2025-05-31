@@ -1,9 +1,12 @@
-from flask import Blueprint, request, jsonify, render_template
+from flask import Blueprint, request, jsonify, render_template,send_file
 from app.utils import process_upload, clinvar_query
+import app.pdf_report as pdf_report
 import uuid
 import threading
 import os
 import traceback
+from fpdf import FPDF
+import tempfile
 from flask import send_from_directory
 
 main = Blueprint('main', __name__)
@@ -142,6 +145,92 @@ def get_results_api():
         'variants': task.get('result', {}).get('variants', [])
     })
 
+@main.route('/api/report', methods=['GET'])
+def generate_report():
+    task_id = request.args.get('task_id')
+    if not task_id:
+        return jsonify({'error': 'Missing task_id'}), 400
+    
+    task = tasks.get(task_id)
+    if not task:
+        return jsonify({'error': 'Invalid task_id'}), 404
+    
+    if task['status'] != 'completed':
+        return jsonify({'error': 'Task not completed'}), 400
+    tmp_path = None
+    try:
+        # 生成PDF报告 - 设置自定义标题
+        custom_title = "致病性突变——乳腺癌患病风险分析报告"
+        pdf = pdf_report.PDFReport(title=custom_title)
+        pdf.set_title(custom_title)
+        
+        # 添加PRS信息
+        result = task.get('result', {})
+        pdf.add_section("PRS风险评分", [
+            f"评分: {result.get('summary',{}).get('prs_score', 'N/A')}",
+            f"风险等级: {result.get('summary',{}).get('prs_risk', '未评估')}"
+        ])
+        
+        # 添加变异摘要 - 修复NoneType错误
+        variants = result.get('variants', [])
+        
+        # 安全地计算致病性变异数量
+        pathogenic_count = 0
+        for v in variants:
+            clinvar_data = v.get('clinvar_data', {})
+            # 检查是否存在ClinicalSignificance字段
+            if clinvar_data and clinvar_data.get('ClinicalSignificance') == 'Pathogenic':
+                pathogenic_count += 1
+        
+        pdf.add_section("变异摘要", [
+            f"总变异数: {len(variants)}",
+            f"致病性变异: {pathogenic_count}",
+            f"蛋白质影响变异: {sum(1 for v in variants if v.get('protein_info'))}"
+        ])
+        
+        # 添加详细变异表格 - 修复NoneType错误
+        if variants:
+            headers = ["变异ID", "染色体", "位置", "参考序列", "变异序列", "临床意义"]
+            rows = []
+            for v in variants[:15]:  # 只显示前15个
+                var_info = v.get('variant_info', {})
+                clinvar_data = v.get('clinvar_data', {})
+                
+                # 安全地获取各字段值
+                rows.append([
+                    var_info.get('id', ''),
+                    var_info.get('chrom', ''),
+                    str(var_info.get('pos', '')),
+                    var_info.get('ref', ''),
+                    var_info.get('alt', ''),
+                    clinvar_data.get('ClinicalSignificance', '未知')
+                ])
+            pdf.add_table("变异列表", headers, rows)
+        
+        # 保存临时文件
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
+            pdf.output(tmp.name)
+            tmp_path = tmp.name
+        
+        return send_file(
+            tmp_path,
+            as_attachment=True,
+            download_name=f'mutation_report_{task_id}.pdf',
+            mimetype='application/pdf'
+        )
+    
+    except Exception as e:
+        print(f"生成报告失败: {e}")
+        traceback.print_exc()
+        return jsonify({'error': '报告生成失败'}), 500
+    
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except Exception as e:
+                print(f"删除临时文件失败: {e}")
+                
 # 添加前端路由 fallback
 @main.route('/', defaults={'path': ''})
 @main.route('/<path:path>')
