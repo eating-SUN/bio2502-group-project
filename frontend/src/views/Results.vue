@@ -32,7 +32,7 @@
           <template v-else-if="taskStatus === 'completed'">
             <!-- PRS评分 -->
             <div class="mb-4">
-              <h4>PRS评分: 
+              <h4>乳腺癌PRS评分: 
                 <span class="text-primary">{{ prsScore }}</span>
                 <span class="badge" :class="riskBadgeClass">{{ prsRisk }}</span>
               </h4>
@@ -89,6 +89,7 @@
                     <th>基因型</th>
                     <th>临床意义</th>
                     <th>基因</th>
+                    <th>RegulomeDB分数</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -105,6 +106,14 @@
                       </span>
                     </td>
                     <td>{{ item.clinvar_data?.Gene || '-' }}</td>
+                    <td>
+                      <span v-if="item.regulome_score && typeof item.regulome_score === 'object'" class="badge" :class="getRegulomeClass(item.regulome_score)">
+                        {{ formatRegulomeScore(item.regulome_score) }}
+                      </span>
+                      <span v-else>
+                        N/A
+                      </span>
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -290,7 +299,7 @@ export default {
       }
       
       this.mergedData.forEach(item => {
-        const significance = item.clinvar_data?.clinvar?.ClinicalSignificance || 'Unknown'
+        const significance = item.clinvar_data?.ClinicalSignificance || 'Unknown'
         if (significance in significanceCount) {
           significanceCount[significance]++
         } else {
@@ -516,6 +525,23 @@ export default {
         }
       });
     },
+    getRegulomeClass(score) {
+    if (!score || typeof score !== 'object') return 'bg-secondary';
+    
+    // 根据ranking值返回不同颜色
+    const firstChar = score.ranking.charAt(0);
+    if (['1', '2'].includes(firstChar)) return 'bg-danger';
+    if (['3', '4'].includes(firstChar)) return 'bg-warning';
+    if (['5', '6'].includes(firstChar)) return 'bg-success';
+    return 'bg-secondary';
+  },
+  formatRegulomeScore(score) {
+    if (!score) return 'N/A';
+    if (typeof score === 'object') {
+      return `${score.ranking} (${score.probability_score})`;
+    }
+    return score;
+  },
     // 格式化序列显示（每10个字符加空格）
     formatSequence(seq) {
       return seq.replace(/(.{10})/g, '$1 ');

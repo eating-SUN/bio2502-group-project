@@ -157,10 +157,11 @@ def generate_report():
     
     if task['status'] != 'completed':
         return jsonify({'error': 'Task not completed'}), 400
+    
     tmp_path = None
     try:
         # 生成PDF报告 - 设置自定义标题
-        custom_title = "致病性突变——乳腺癌患病风险分析报告"
+        custom_title = "乳腺癌遗传风险分析报告"
         pdf = pdf_report.PDFReport(title=custom_title)
         pdf.set_title(custom_title)
         
@@ -168,33 +169,59 @@ def generate_report():
         result = task.get('result', {})
         pdf.add_section("PRS风险评分", [
             f"评分: {result.get('summary',{}).get('prs_score', 'N/A')}",
-            f"风险等级: {result.get('summary',{}).get('prs_risk', '未评估')}"
+            f"风险等级: {result.get('summary',{}).get('prs_risk', '未评估')}",
+            f"基于 {len(result.get('variants', []))} 个变异计算"
         ])
         
-        # 添加变异摘要 - 修复NoneType错误
+        # 添加变异摘要
         variants = result.get('variants', [])
         
-        # 安全地计算致病性变异数量
+        # 安全地计算各种变异数量
         pathogenic_count = 0
+        protein_affecting_count = 0
+        regulome_scores = []
+        
         for v in variants:
             clinvar_data = v.get('clinvar_data', {})
             # 检查是否存在ClinicalSignificance字段
             if clinvar_data and clinvar_data.get('ClinicalSignificance') == 'Pathogenic':
                 pathogenic_count += 1
+            
+            if v.get('protein_info'):
+                protein_affecting_count += 1
+            
+            regulome_score = v.get('regulome_score', {})
+            if isinstance(regulome_score, dict) and 'ranking' in regulome_score:
+                regulome_scores.append(regulome_score['ranking'][0])
+        
+        # 计算RegulomeDB分数分布
+        regulome_distribution = {}
+        for score in regulome_scores:
+            regulome_distribution[score] = regulome_distribution.get(score, 0) + 1
         
         pdf.add_section("变异摘要", [
             f"总变异数: {len(variants)}",
             f"致病性变异: {pathogenic_count}",
-            f"蛋白质影响变异: {sum(1 for v in variants if v.get('protein_info'))}"
+            f"蛋白质影响变异: {protein_affecting_count}",
+            f"高影响RegulomeDB分数 (1-2): {sum(count for score, count in regulome_distribution.items() if score in '12')}",
+            f"中等影响RegulomeDB分数 (3-4): {sum(count for score, count in regulome_distribution.items() if score in '34')}",
+            f"低影响RegulomeDB分数 (5-6): {sum(count for score, count in regulome_distribution.items() if score in '56')}"
         ])
         
-        # 添加详细变异表格 - 修复NoneType错误
+        # 添加详细变异表格
         if variants:
-            headers = ["变异ID", "染色体", "位置", "参考序列", "变异序列", "临床意义"]
+            headers = ["变异ID", "染色体", "位置", "参考序列", "变异序列", "临床意义", "基因", "RegulomeDB分数"]
             rows = []
             for v in variants[:15]:  # 只显示前15个
                 var_info = v.get('variant_info', {})
                 clinvar_data = v.get('clinvar_data', {})
+                regulome_score = v.get('regulome_score', {})
+                
+                # 格式化RegulomeDB分数
+                if isinstance(regulome_score, dict) and 'ranking' in regulome_score:
+                    regulome_text = f"{regulome_score['ranking']} ({regulome_score.get('probability_score', 'N/A')})"
+                else:
+                    regulome_text = str(regulome_score)
                 
                 # 安全地获取各字段值
                 rows.append([
@@ -203,9 +230,59 @@ def generate_report():
                     str(var_info.get('pos', '')),
                     var_info.get('ref', ''),
                     var_info.get('alt', ''),
-                    clinvar_data.get('ClinicalSignificance', '未知')
+                    clinvar_data.get('ClinicalSignificance', '未知'),
+                    clinvar_data.get('Gene', '-'),
+                    regulome_text
                 ])
-            pdf.add_table("变异列表", headers, rows)
+            pdf.add_table("变异列表 (前15个)", headers, rows)
+        
+        # 添加蛋白质变异信息
+        protein_variants = [v for v in variants if v.get('protein_info')]
+        if protein_variants:
+            pdf.add_section("蛋白质变异信息", [f"共发现 {len(protein_variants)} 个影响蛋白质功能的变异"])
+            
+            # 只展示前3个蛋白质变异
+            for idx, variant in enumerate(protein_variants[:3]):
+                protein_info = variant.get('protein_info', {})
+                # 添加蛋白质特征
+                protein_info['protein_features'] = variant.get('protein_features', {})
+                pdf.add_protein_section(f"蛋白质变异 #{idx+1}", protein_info)
+        
+        # 添加图表 - 使用try-except确保即使图表失败也能生成报告
+        try:
+            # 临床意义分布图
+            clinvar_data = {
+                'labels': ['Pathogenic', 'Likely pathogenic', 'Uncertain significance', 
+                          'Likely benign', 'Benign', 'Unknown'],
+                'data': [0, 0, 0, 0, 0, 0]
+            }
+            
+            for v in variants:
+                significance = v.get('clinvar_data', {}).get('ClinicalSignificance', 'Unknown')
+                if significance in clinvar_data['labels']:
+                    index = clinvar_data['labels'].index(significance)
+                    clinvar_data['data'][index] += 1
+                else:
+                    clinvar_data['data'][5] += 1  # Unknown
+            
+            pdf.add_chart("临床意义分布", "clinvar", clinvar_data)
+            
+            # PRS分布图
+            chrom_counts = {}
+            for v in variants:
+                chrom = v.get('variant_info', {}).get('chrom', 'Unknown')
+                chrom_counts[chrom] = chrom_counts.get(chrom, 0) + 1
+            
+            prs_data = {
+                'labels': list(chrom_counts.keys()),
+                'data': list(chrom_counts.values())
+            }
+            
+            pdf.add_chart("染色体变异分布", "prs_distribution", prs_data)
+        except Exception as e:
+            print(f"生成图表失败: {e}")
+            # 添加错误信息到PDF
+            pdf.add_section("图表生成失败", [f"图表生成过程中出错: {str(e)}"])
         
         # 保存临时文件
         with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
@@ -215,7 +292,7 @@ def generate_report():
         return send_file(
             tmp_path,
             as_attachment=True,
-            download_name=f'mutation_report_{task_id}.pdf',
+            download_name=f'breast_cancer_risk_report_{task_id}.pdf',
             mimetype='application/pdf'
         )
     
