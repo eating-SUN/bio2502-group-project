@@ -24,6 +24,7 @@
                      :style="{ width: progress + '%' }">
                 </div>
               </div>
+              <p class="mt-2">当前进度: {{ progress }}%</p>
             </div>
           </template>
 
@@ -35,6 +36,7 @@
                 <span class="text-primary">{{ prsScore }}</span>
                 <span class="badge" :class="riskBadgeClass">{{ prsRisk }}</span>
               </h4>
+              <p class="text-muted">基于 {{ mergedData.length }} 个变异计算</p>
             </div>
 
             <!-- 分页控制 -->
@@ -69,38 +71,136 @@
               </div>
             </div>
 
+            <div v-if="taskStatus === 'completed' && mergedData.length === 0">
+              <div class="alert alert-info">
+                未检测到有效变异
+              </div>
+            </div>
             <!-- 变异表格 -->
             <div class="table-responsive">
               <table class="table table-striped">
                 <thead>
                   <tr>
+                    <th>变异ID</th>
                     <th>染色体</th>
-                    <th>起始位点</th>
+                    <th>位置</th>
                     <th>参考序列</th>
-                    <th>变异位点</th>
+                    <th>变异序列</th>
+                    <th>基因型</th>
                     <th>临床意义</th>
-                    <th>表型列表</th>
-                    <th>审核状态</th>
+                    <th>基因</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="(item, index) in paginatedData" :key="index">
-                    <td>{{ item.variant.Chromosome || 'chrN/A' }}</td>
-                    <td>{{ item.variant.Start || '-' }}</td>
-                    <td class="text-monospace">{{ item.variant.Reference || '-' }}</td>
-                    <td class="text-monospace text-danger">{{ item.variant.Alternate || '-' }}</td>
+                    <td>{{ item.variant_info.id || 'N/A' }}</td>
+                    <td>{{ item.variant_info.chrom || 'chrN/A' }}</td>
+                    <td>{{ item.variant_info.pos || '-' }}</td>
+                    <td class="text-monospace">{{ item.variant_info.ref || '-' }}</td>
+                    <td class="text-monospace text-danger">{{ item.variant_info.alt || '-' }}</td>
+                    <td class="text-monospace">{{ item.variant_info.genotype || '-' }}</td>
                     <td>
-                      <span class="badge" :class="getClinicalClass(item.clinvar.ClinicalSignificance)">
-                        {{ item.clinvar.ClinicalSignificance || '未知' }}
+                      <span class="badge" :class="getClinicalClass(item.clinvar_data?.clinvar?.ClinicalSignificance)">
+                        {{ item.clinvar_data?.clinvar?.ClinicalSignificance || '未知' }}
                       </span>
                     </td>
-                    <td>{{ item.clinvar.PhenotypeList || '-' }}</td>      
-                    <td>{{ item.clinvar.ReviewStatus || '-' }}</td>
+                    <td>{{ item.clinvar_data?.clinvar?.Gene || '-' }}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
-
+            
+            <!-- 蛋白质变异信息展示区域 -->
+            <div v-if="hasProteinVariants" class="mt-4">
+              <div class="card">
+                <div class="card-header bg-info text-white">
+                  <h4>蛋白质变异信息</h4>
+                </div>
+                <div class="card-body">
+                  <div v-for="(item, index) in proteinVariants" :key="index" class="mb-4">
+                    <h5>变异ID: {{ item.variant_info.id }}</h5>
+                    
+                    <div class="row">
+                      <div class="col-md-4">
+                        <p><strong>蛋白质ID:</strong> 
+                          <a :href="`https://www.uniprot.org/uniprot/${item.protein_info.protein_id}`" target="_blank">
+                            {{ item.protein_info.protein_id }}
+                          </a>
+                        </p>
+                        <p><strong>HGVS.p:</strong> {{ item.protein_info.hgvs_p }}</p>
+                        <p v-if="item.protein_info.mut_pos">
+                          <strong>突变位置:</strong> {{ item.protein_info.mut_pos }}
+                        </p>
+                      </div>
+                      
+                      <div class="col-md-8">
+                        <div class="sequence-box">
+                          <div class="sequence-header">
+                            <span>野生型序列:</span>
+                          </div>
+                          <pre class="sequence">{{ item.protein_info.wt_seq_local }}</pre>
+                          <div v-if="item.protein_info.mut_pos_offset >= 0" 
+                               class="sequence-pointer" 
+                               :style="{ left: item.protein_info.mut_pos_offset + 'ch' }">
+                            ↑
+                          </div>
+                        </div>
+                        
+                        <div class="sequence-box mt-2">
+                          <div class="sequence-header">
+                            <span>突变型序列:</span>
+                          </div>
+                          <pre class="sequence text-danger">{{ item.protein_info.mut_seq_local }}</pre>
+                          <div v-if="item.protein_info.mut_pos_offset >= 0" 
+                               class="sequence-pointer text-danger" 
+                               :style="{ left: item.protein_info.mut_pos_offset + 'ch' }">
+                            ↑
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <!-- 蛋白质特征变化 -->
+                    <div v-if="item.protein_features" class="mt-3">
+                      <h6>蛋白质特征变化:</h6>
+                      <ul class="list-group">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                          分子量变化
+                          <span :class="getChangeClass(item.protein_features.molecular_weight_change)">
+                            {{ formatChange(item.protein_features.molecular_weight_change) }}
+                          </span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                          芳香性变化
+                          <span :class="getChangeClass(item.protein_features.aromaticity_change)">
+                            {{ formatChange(item.protein_features.aromaticity_change) }}
+                          </span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                          不稳定指数变化
+                          <span :class="getChangeClass(item.protein_features.instability_index_change)">
+                            {{ formatChange(item.protein_features.instability_index_change) }}
+                          </span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                          疏水性变化
+                          <span :class="getChangeClass(item.protein_features.gravy_change)">
+                            {{ formatChange(item.protein_features.gravy_change) }}
+                          </span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                          等电点变化
+                          <span :class="getChangeClass(item.protein_features.isoelectric_point_change)">
+                            {{ formatChange(item.protein_features.isoelectric_point_change) }}
+                          </span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
             <!-- 图表容器 -->
             <div class="row mt-4">
               <div class="col-md-6">
@@ -131,8 +231,8 @@ import NavBar from '@components/NavBar.vue'
 import Footer from '@components/Footer.vue'
 import ClinvarChart from '@components/ClinvarChart.vue'
 import PrsDistributionChart from '@components/PrsDistributionChart.vue'
-import axios from 'axios'; // 添加 axios 导入
-import { getTaskStatus, getResults } from '@services/api' // 导入API函数
+import axios from 'axios';
+import { getTaskStatus, getResults } from '@services/api'
 
 export default {
   components: {
@@ -186,7 +286,7 @@ export default {
       }
       
       this.mergedData.forEach(item => {
-        const significance = item.clinvar.ClinicalSignificance || 'Unknown'
+        const significance = item.clinvar_data?.clinvar?.ClinicalSignificance || 'Unknown'
         if (significance in significanceCount) {
           significanceCount[significance]++
         } else {
@@ -210,12 +310,21 @@ export default {
         }]
       }
     },
+    // 提取含有蛋白变异的条目
+    proteinVariants() {
+      return this.mergedData.filter(item => item.protein_info);
+    },
+    
+    // 检查是否存在蛋白变异
+    hasProteinVariants() {
+      return this.proteinVariants.length > 0;
+    },
     prsDistributionChartData() {
       // 按染色体分组统计变异数量
       const chromosomeCounts = {}
       
       this.mergedData.forEach(item => {
-        const chrom = item.variant.Chromosome || 'Unknown'
+        const chrom = item.variant_info?.chrom || 'Unknown'
         if (!chromosomeCounts[chrom]) {
           chromosomeCounts[chrom] = 0
         }
@@ -245,7 +354,6 @@ export default {
       }
       
       try {
-        // 使用导入的 getTaskStatus 方法
         const statusResponse = await getTaskStatus(taskId);
         this.taskStatus = statusResponse.data.status
         this.progress = statusResponse.data.progress || 0
@@ -253,7 +361,6 @@ export default {
         if (this.taskStatus === 'pending') {
           this.pollTaskStatus(taskId)
         } else if (this.taskStatus === 'completed') {
-          // 使用导入的 getResults 方法
           await this.fetchTaskResults(taskId)
         } else if (this.taskStatus === 'failed') {
           this.errorMessage = statusResponse.data.error_message || '任务处理失败'
@@ -267,7 +374,6 @@ export default {
     pollTaskStatus(taskId) {
       const interval = setInterval(async () => {
         try {
-          // 使用导入的 getTaskStatus 方法
           const response = await getTaskStatus(taskId)
           this.taskStatus = response.data.status
           this.progress = response.data.progress || 0
@@ -290,12 +396,14 @@ export default {
     },
     async fetchTaskResults(taskId) {
       try {
-        // 使用导入的 getResults 方法
         const response = await getResults(taskId)
         this.prsScore = response.data.prsScore
         this.prsRisk = response.data.prsRisk
         this.mergedData = response.data.variants || []
-        
+
+        // 处理蛋白质数据
+        this.processProteinData()
+
         // 设置风险等级徽章样式
         if (this.prsRisk.includes('低')) {
           this.riskBadgeClass = 'bg-success'
@@ -330,6 +438,15 @@ export default {
       }
       return 'bg-secondary'
     },
+    getChangeClass(value) {
+      if (value > 0) return 'text-danger'
+      if (value < 0) return 'text-success'
+      return ''
+    },
+    formatChange(value) {
+      if (value === null || value === undefined) return 'N/A'
+      return value > 0 ? `+${value}` : value
+    },
     getLoadingStatusText(status) {
       const statusMap = {
         queued: '任务排队中...',
@@ -349,19 +466,35 @@ export default {
         return
       }
       
-      // 在实际应用中，这里应该调用后端API生成PDF
-      // 目前使用模拟下载
       alert('PDF报告生成功能将在后端实现')
-      
-      // 模拟下载
-      /*
-      const link = document.createElement('a')
-      link.href = `/api/report?task_id=${taskId}`
-      link.download = `dna_report_${taskId}.pdf`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      */
+    },
+    processProteinData() {
+      this.mergedData.forEach(item => {
+        if (item.protein_info) {
+          // 解析突变位置（从HGVS.p格式中提取）
+          const hgvsMatch = item.protein_info.hgvs_p?.match(/\.(\d+)/);
+          const mut_pos = hgvsMatch ? parseInt(hgvsMatch[1]) : -1;
+          
+          // 计算序列显示范围（突变位置前后各15个氨基酸）
+          const start = Math.max(0, mut_pos - 15);
+          const end = Math.min(item.protein_info.wt_seq.length, mut_pos + 15);
+          
+          // 计算突变位置在显示序列中的偏移量
+          const mut_pos_offset = mut_pos > 0 ? mut_pos - start - 1 : -1;
+          
+          item.protein_info = {
+            ...item.protein_info,
+            wt_seq_local: this.formatSequence(item.protein_info.wt_seq.substring(start, end)), 
+            mut_seq_local: this.formatSequence(item.protein_info.mut_seq.substring(start, end)),
+            mut_pos: mut_pos,
+            mut_pos_offset: mut_pos_offset
+          };
+        }
+      });
+    },
+    // 格式化序列显示（每10个字符加空格）
+    formatSequence(seq) {
+      return seq.replace(/(.{10})/g, '$1 ');
     }
   }
 }
@@ -419,5 +552,40 @@ export default {
 
 [v-cloak] {
   display: none;
+}
+
+.sequence-box {
+  position: relative;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 10px;
+  background-color: #f8f9fa;
+  overflow-x: auto;
+}
+
+.sequence-header {
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.sequence {
+  font-family: monospace;
+  font-size: 1.1rem;
+  letter-spacing: 1px;
+  margin-bottom: 0;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.sequence-pointer {
+  position: absolute;
+  bottom: -20px;
+  transform: translateX(-50%);
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+
+.list-group-item {
+  padding: 0.75rem 1.25rem;
 }
 </style>
