@@ -1,6 +1,6 @@
 import sqlite3
 
-def compute_prs(variants, prs_db="prs_brca.db", verbose=False):
+def compute_prs(variants, prs_db="data/prs/prs_brca.db", verbose=True):
 
     # 0. 从变异中提取rsID
     rsids = [v['variant_info']['id'] for v in variants if 'id' in v['variant_info']]
@@ -12,7 +12,7 @@ def compute_prs(variants, prs_db="prs_brca.db", verbose=False):
     # 1. 连接数据库查询PRS信息
     conn = sqlite3.connect(prs_db)
     placeholders = ",".join("?" for _ in rsids)
-    query = f"SELECT rsID, effect_allele, effect_weight, source FROM prs WHERE rsID IN ({placeholders})"
+    query = f"SELECT rsID, effect_allele, effect_weight, source FROM prs_brca WHERE rsID IN ({placeholders})"
     cursor = conn.execute(query, rsids)
     prs_data = cursor.fetchall()
     conn.close()
@@ -25,7 +25,7 @@ def compute_prs(variants, prs_db="prs_brca.db", verbose=False):
 
     # 2. 预处理变异数据：将所有VCF中的变异按rsID存入字典
     var_dict = {
-        v['variant_info']['id'].lstrip('rs'): v['variant_info']
+        v['variant_info']['id']: v['variant_info']
         for v in variants 
         if 'id' in v['variant_info']
     }
