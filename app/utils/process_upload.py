@@ -48,18 +48,15 @@ def process_vcf(vcf_path, verbose=True):
         protein_info_dict = {}
         # 检查每条是否包含蛋白信息
         for v in annotated_variants:
+            var_id = v['id']
+            hgvs_p = v.get('hgvs_p')
+            protein_id = v.get('protein_id')
             if verbose:
                 print(f"[DEBUG] 注释: id={v.get('id')}, hgvs_p={v.get('hgvs_p')}, protein_id={v.get('protein_id')}")
-            var_id = v['id']
             if var_id not in variant_dict:
                 if verbose:
                     print(f"[WARNING] VEP 注释 ID 未在 VCF 中找到: {var_id}")
                 continue
-
-            hgvs_p = v.get('hgvs_p')
-            protein_id = v.get('protein_id')
-
-            # 检查蛋白ID和HGVS是否存在
             if not hgvs_p or not protein_id:
                 if verbose:
                     print(f"[DEBUG] 缺少 protein_id 或 hgvs_p: hgvs_p={hgvs_p}, protein_id={protein_id}")
@@ -73,7 +70,7 @@ def process_vcf(vcf_path, verbose=True):
                 continue
 
             # 检查 HGVS 是否能解析
-            ref_aa, pos, alt_aa = parse_hgvs_protein(hgvs_p)
+            pos, ref_aa, alt_aa, mutation_type = parse_hgvs_protein(hgvs_p)
             if None in (ref_aa, pos, alt_aa):
                 print(f"[WARNING] HGVS 解析失败: {hgvs_p}")
                 continue
@@ -91,7 +88,10 @@ def process_vcf(vcf_path, verbose=True):
 
             protein_info_dict[var_id] = {
                 'protein_id': protein_id,
-                'hgvs_p': hgvs_p,
+                'position': pos,
+                'ref_aa': ref_aa,
+                'alt_aa': alt_aa,
+                'mutation_type': mutation_type,
                 'wt_seq': seq,
                 'mut_seq': mut_seq
             }

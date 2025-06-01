@@ -21,3 +21,9 @@ def calculate_protein_features(seq_before, seq_after, verbose=True):
     if verbose:
         print("[DEBUG] 蛋白质理化性质计算完成")
     return properties
+
+def check_stop(seq: str):
+    has_premature_stop = '*' in seq
+    allowed = set("ACDEFGHIKLMNPQRSTVWY")
+    cleaned_seq = ''.join([aa for aa in seq.upper() if aa in allowed])
+    return cleaned_seq, has_premature_stop
