@@ -12,7 +12,7 @@ import base64
 import platform
 
 class PDFReport(FPDF):
-    def __init__(self, title="DNA分析报告"):
+    def __init__(self, title="变异乳腺癌致病性分析报告"):
         super().__init__()
         # 添加常规字体（宋体）和粗体字体（黑体）
         font_dir = os.path.join(os.path.dirname(__file__), 'fonts')
