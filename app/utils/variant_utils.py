@@ -90,8 +90,8 @@ def process_variants(task_id, variants, tasks, file_path=None):
                 mut_seq_clean, mut_has_stop = bio_features.check_stop(mut_seq)
 
                 if wt_has_stop or mut_has_stop:
-                    # 遇到提前终止，直接返回提示字符串
-                    v['protein_features'] = "提前终止"
+                    # 遇到提前终止，直接返回 None
+                    v['protein_features'] = None
                     print(f"[WARNING][{task_id}] 第 {idx+1} 个变异检测到提前终止，跳过理化性质计算")
                 else:
                     protein_features = bio_features.calculate_protein_features(wt_seq_clean, mut_seq_clean)

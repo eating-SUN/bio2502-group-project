@@ -2,6 +2,7 @@ import subprocess
 import requests
 import time
 import urllib.parse
+import json
 import re
 import os
 
@@ -16,11 +17,11 @@ def run_vep(input_vcf, output_file):
     print("[DEBUG] 输出文件名:", output_name)
 
     cmd = [
-        "perl", "/mnt/c/Users/10188/bio2502project/ensembl-vep/vep",
+        "perl", "/home/zhangyixuan/course/bio2502/bio2502project/ensembl-vep/vep",
         "-i", input_vcf,
         "--cache",
         "--offline",
-        "--dir_cache", "/mnt/c/Users/10188/bio2502project/.vep",
+        "--dir_cache", "/home/zhangyixuan/course/bio2502/bio2502project/.vep",
         "--assembly", "GRCh38",
         "--symbol",
         "--uniprot",
@@ -136,22 +137,44 @@ def parse_vep_output(vep_file, verbose=True):
         print("[DEBUG] 示例变异:", variants[0])
     return variants
 
+# ----------------------------------------------------------
+# 以下为 UniProt 相关函数
+# ----------------------------------------------------------
+CACHE_FILE = "data/cache/uniprot_seq_cache.json"
 
-#  protein utils
+# 加载缓存
+if os.path.exists(CACHE_FILE):
+    with open(CACHE_FILE, "r") as f:
+        UNIPROT_CACHE = json.load(f)
+else:
+    UNIPROT_CACHE = {}
+
+def save_cache():
+    with open(CACHE_FILE, "w") as f:
+        json.dump(UNIPROT_CACHE, f)
+
 def get_uniprot_seq(uniprot_id, retries=1, timeout=3):
     """
     从 UniProt 获取蛋白质序列（FASTA格式），返回纯序列字符串。
     """
     # 去除 isoform 后缀
     uniprot_id = uniprot_id.split('.')[0]
+    
+    # 尝试从缓存中获取
+    if uniprot_id in UNIPROT_CACHE:
+        return UNIPROT_CACHE[uniprot_id]
+    
     url = f"https://rest.uniprot.org/uniprotkb/{uniprot_id}.fasta"
+    headers = {"User-Agent": "Bio2502Project/1.0"}
 
     for attempt in range(retries + 1): 
         try:
-            response = requests.get(url, timeout=timeout)
+            response = requests.get(url, timeout=timeout, headers=headers)
             if response.status_code == 200:
                 lines = response.text.splitlines()
                 seq = ''.join([line.strip() for line in lines if not line.startswith('>')])
+                UNIPROT_CACHE[uniprot_id] = seq
+                save_cache()
                 return seq
             elif 400 <= response.status_code < 500:
                 print(f"[ERROR] UniProt请求失败（客户端错误 {response.status_code}）：{uniprot_id}")
@@ -164,6 +187,7 @@ def get_uniprot_seq(uniprot_id, retries=1, timeout=3):
 
     print(f"[ERROR] 获取 UniProt 序列失败：{uniprot_id}")
     return None
+# ---------------------------------------------------------------
 
 
 def parse_hgvs_protein(hgvs_p):
@@ -287,6 +311,10 @@ def mutate_sequence(seq, pos, alt_aa):
         replacement = ''.join([aa3to1.get(alt_aa[i:i+3], '') for i in range(7, len(alt_aa), 3)])
         return seq[:pos - 1] + replacement + seq[pos:]
 
+    if alt_aa == '*':  
+        print(f"[DEBUG] 终止突变，从位置 {pos} 截断序列")
+        return seq[:pos - 1] + "*"
+    
     if len(alt_aa) == 1:
         seq_list = list(seq)
         seq_list[pos - 1] = alt_aa

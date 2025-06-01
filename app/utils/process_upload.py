@@ -57,17 +57,16 @@ def process_vcf(vcf_path, verbose=True):
                 if verbose:
                     print(f"[WARNING] VEP 注释 ID 未在 VCF 中找到: {var_id}")
                 continue
-            if not hgvs_p or not protein_id:
+            if not protein_id:
                 if verbose:
-                    print(f"[DEBUG] 缺少 protein_id 或 hgvs_p: hgvs_p={hgvs_p}, protein_id={protein_id}")
+                    print(f"[DEBUG] 缺少 protein_id: protein_id={protein_id}")
                 continue
-
-            # 检查是否能获取蛋白序列
-            seq = get_uniprot_seq(protein_id)
-            if not seq:
-                if verbose:
-                    print(f"[WARNING] 无法获取 UniProt 序列: {protein_id}")
-                continue
+            else:
+                seq = get_uniprot_seq(protein_id)
+                if not seq:
+                    if verbose:
+                        print(f"[WARNING] 无法获取 UniProt 序列: {protein_id}")
+                    continue
 
             # 检查 HGVS 是否能解析
             pos, ref_aa, alt_aa, mutation_type = parse_hgvs_protein(hgvs_p)
