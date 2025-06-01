@@ -86,8 +86,17 @@ def process_variants(task_id, variants, tasks, file_path=None):
 
                 print(f"[DEBUG][{task_id}] wt_seq 长度: {len(wt_seq)}, mut_seq 长度: {len(mut_seq)}")
 
-                v['protein_features'] = bio_features.calculate_protein_features(wt_seq, mut_seq)
-                print(f"[INFO][{task_id}] 成功计算第 {idx+1} 个蛋白质特征")
+                wt_seq_clean, wt_has_stop = bio_features.check_stop(wt_seq)
+                mut_seq_clean, mut_has_stop = bio_features.check_stop(mut_seq)
+
+                if wt_has_stop or mut_has_stop:
+                    # 遇到提前终止，直接返回提示字符串
+                    v['protein_features'] = "提前终止"
+                    print(f"[WARNING][{task_id}] 第 {idx+1} 个变异检测到提前终止，跳过理化性质计算")
+                else:
+                    protein_features = bio_features.calculate_protein_features(wt_seq_clean, mut_seq_clean)
+                    v['protein_features'] = protein_features
+                    print(f"[INFO][{task_id}] 成功计算第 {idx+1} 个蛋白质特征")
 
             except Exception as e:
                 print(f"[WARNING][{task_id}] 第 {idx+1} 个蛋白质特征计算失败: {e}")
