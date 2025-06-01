@@ -211,7 +211,9 @@ class PDFReport(FPDF):
         # 基本信息
         self.set_font_based_on_style('B')
         self.cell(0, 8, f"蛋白质ID: {protein_info.get('protein_id', 'N/A')}", 0, 1)
-        self.cell(0, 8, f"HGVS.p: {protein_info.get('hgvs_p', 'N/A')}", 0, 1)
+        self.cell(0, 8, f"位置: {protein_info.get('position', 'N/A')}", 0, 1)
+        self.cell(0, 8, f"突变类型: {protein_info.get('mutation_type', 'N/A')}", 0, 1)
+        self.cell(0, 8, f"氨基酸变化: {protein_info.get('ref_aa', '')} → {protein_info.get('alt_aa', '')}", 0, 1)
         self.ln(5)
         
         # 序列对比

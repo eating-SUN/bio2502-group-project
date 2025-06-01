@@ -158,106 +158,111 @@
             </div>
             
             <!-- 蛋白质变异信息展示区域 -->
-            <div v-if="hasProteinVariants" class="mt-4">
-              <div class="card">
-                <div class="card-header bg-info text-white">
-                  <h4>蛋白质变异信息</h4>
-                </div>
-                <div class="card-body">
-                  <div v-for="(item, index) in proteinVariants" :key="index" class="mb-4">
-                    <h5>变异ID: {{ item.variant_info.id }}</h5>
                     
-                    <div class="row">
-                      <div class="col-md-4">
-                        <p><strong>蛋白质ID:</strong> 
-                          <a :href="`https://www.uniprot.org/uniprot/${item.protein_info.protein_id}`" target="_blank">
-                            {{ item.protein_info.protein_id }}
-                          </a>
-                        </p>
-                        <p><strong>HGVS.p:</strong> {{ item.protein_info.hgvs_p }}</p>
+        <div v-if="hasProteinVariants" class="mt-4">
+          <div class="card">
+            <div class="card-header bg-info text-white">
+              <h4>蛋白质变异信息</h4>
+            </div>
+            <div class="card-body">
+              <div v-for="(item, index) in proteinVariants" :key="index" class="mb-4">
+                <h5>变异ID: {{ item.variant_info.id }}</h5>
+                
+                <div class="row">
+                  <div class="col-md-4">
+                    <p><strong>蛋白质ID:</strong> 
+                      <a :href="`https://www.uniprot.org/uniprot/${item.protein_info.protein_id}`" target="_blank">
+                        {{ item.protein_info.protein_id }}
+                      </a>
+                    </p>
+                    <p><strong>位置:</strong> {{ item.protein_info.position }}</p>
+                    <p><strong>突变类型:</strong> {{ item.protein_info.mutation_type }}</p>
+                    <p><strong>氨基酸变化:</strong> 
+                      {{ item.protein_info.ref_aa }} → {{ item.protein_info.alt_aa }}
+                    </p>
+                  </div>
+                  
+                  <div class="col-md-8">
+                    <div class="sequence-box">
+                      <div class="sequence-header">
+                        <span>野生型序列:</span>
                       </div>
-                      
-                      <div class="col-md-8">
-                        <div class="sequence-box">
-                          <div class="sequence-header">
-                            <span>野生型序列:</span>
-                          </div>
-                          <pre class="sequence">{{ item.protein_info.wt_seq_local }}</pre>
-                          <div v-if="item.protein_info.mut_pos_offset >= 0" 
-                               class="sequence-pointer" 
-                               :style="{ left: item.protein_info.mut_pos_offset + 'ch' }">
-                            ↑
-                          </div>
-                        </div>
-                        
-                        <div class="sequence-box mt-2">
-                          <div class="sequence-header">
-                            <span>突变型序列:</span>
-                          </div>
-                          <pre class="sequence text-danger">{{ item.protein_info.mut_seq_local }}</pre>
-                          <div v-if="item.protein_info.mut_pos_offset >= 0" 
-                               class="sequence-pointer text-danger" 
-                               :style="{ left: item.protein_info.mut_pos_offset + 'ch' }">
-                            ↑
-                          </div>
-                        </div>
+                      <pre class="sequence">{{ item.protein_info.wt_seq_local }}</pre>
+                      <div v-if="item.protein_info.mut_pos_offset >= 0" 
+                          class="sequence-pointer" 
+                          :style="{ left: item.protein_info.mut_pos_offset + 'ch' }">
+                        ↑
                       </div>
                     </div>
                     
-                    <!-- 蛋白质特征变化 -->
-                    <div v-if="item.protein_features" class="mt-3">
-                      <h6>蛋白质特征变化:</h6>
-                      <ul class="list-group">
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                          分子量变化
-                          <span :class="getChangeClass(item.protein_features.molecular_weight_change)">
-                            {{ formatChange(item.protein_features.molecular_weight_change) }}
-                          </span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                          芳香性变化
-                          <span :class="getChangeClass(item.protein_features.aromaticity_change)">
-                            {{ formatChange(item.protein_features.aromaticity_change) }}
-                          </span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                          不稳定指数变化
-                          <span :class="getChangeClass(item.protein_features.instability_index_change)">
-                            {{ formatChange(item.protein_features.instability_index_change) }}
-                          </span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                          疏水性变化
-                          <span :class="getChangeClass(item.protein_features.gravy_change)">
-                            {{ formatChange(item.protein_features.gravy_change) }}
-                          </span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                          等电点变化
-                          <span :class="getChangeClass(item.protein_features.isoelectric_point_change)">
-                            {{ formatChange(item.protein_features.isoelectric_point_change) }}
-                          </span>
-                        </li>
-                      </ul>
+                    <div class="sequence-box mt-2">
+                      <div class="sequence-header">
+                        <span>突变型序列:</span>
+                      </div>
+                      <pre class="sequence text-danger">{{ item.protein_info.mut_seq_local }}</pre>
+                      <div v-if="item.protein_info.mut_pos_offset >= 0" 
+                          class="sequence-pointer text-danger" 
+                          :style="{ left: item.protein_info.mut_pos_offset + 'ch' }">
+                        ↑
+                      </div>
                     </div>
                   </div>
                 </div>
+                
+                <!-- 蛋白质特征变化 -->
+                <div v-if="item.protein_features" class="mt-3">
+                  <h6>蛋白质特征变化:</h6>
+                  <ul class="list-group">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                      分子量变化
+                      <span :class="getChangeClass(item.protein_features.molecular_weight_change)">
+                        {{ formatChange(item.protein_features.molecular_weight_change) }}
+                      </span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                      芳香性变化
+                      <span :class="getChangeClass(item.protein_features.aromaticity_change)">
+                        {{ formatChange(item.protein_features.aromaticity_change) }}
+                      </span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                      不稳定指数变化
+                      <span :class="getChangeClass(item.protein_features.instability_index_change)">
+                        {{ formatChange(item.protein_features.instability_index_change) }}
+                      </span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                      疏水性变化
+                      <span :class="getChangeClass(item.protein_features.gravy_change)">
+                        {{ formatChange(item.protein_features.gravy_change) }}
+                      </span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                      等电点变化
+                      <span :class="getChangeClass(item.protein_features.isoelectric_point_change)">
+                        {{ formatChange(item.protein_features.isoelectric_point_change) }}
+                      </span>
+                    </li>
+                  </ul>
+                </div>
               </div>
             </div>
-            
-            <!-- 图表容器 -->
-            <div class="row mt-4">
-              <div class="col-md-6">
-                <clinvar-chart :chartData="clinvarChartData" />
+          </div>
+        </div>
+              <!-- 分析结果统计 -->            
+              <!-- 图表容器 -->
+              <div class="row mt-4">
+                <div class="col-md-6">
+                  <clinvar-chart :chartData="clinvarChartData" />
+                </div>
+                <div class="col-md-6">
+                  <prs-distribution-chart :chartData="prsDistributionChartData" />
+                </div>
               </div>
-              <div class="col-md-6">
-                <prs-distribution-chart :chartData="prsDistributionChartData" />
-              </div>
-            </div>
-          </template>
+            </template>
+          </div>
         </div>
       </div>
-    </div>
 
     <!-- PDF下载按钮 -->
     <div class="container mt-4 text-center" v-if="taskStatus === 'completed'">
@@ -618,29 +623,27 @@ export default {
       
   
     processProteinData() {
-      this.mergedData.forEach(item => {
-        if (item.protein_info) {
-          // 解析突变位置（从HGVS.p格式中提取）
-          const hgvsMatch = item.protein_info.hgvs_p?.match(/\.(\d+)/);
-          const mut_pos = hgvsMatch ? parseInt(hgvsMatch[1]) : -1;
-          
-          // 计算序列显示范围（突变位置前后各15个氨基酸）
-          const start = Math.max(0, mut_pos - 15);
-          const end = Math.min(item.protein_info.wt_seq.length, mut_pos + 15);
-          
-          // 计算突变位置在显示序列中的偏移量
-          const mut_pos_offset = mut_pos > 0 ? mut_pos - start - 1 : -1;
-          
-          item.protein_info = {
-            ...item.protein_info,
-            wt_seq_local: this.formatSequence(item.protein_info.wt_seq.substring(start, end)), 
-            mut_seq_local: this.formatSequence(item.protein_info.mut_seq.substring(start, end)),
-            mut_pos: mut_pos,
-            mut_pos_offset: mut_pos_offset
-          };
-        }
-      });
-    },
+  this.mergedData.forEach(item => {
+    if (item.protein_info) {
+      const position = item.protein_info.position || -1;
+      
+      // 计算序列显示范围（突变位置前后各15个氨基酸）
+      const start = Math.max(0, position - 15);
+      const end = Math.min(item.protein_info.wt_seq.length, position + 15);
+      
+      // 计算突变位置在显示序列中的偏移量
+      const mut_pos_offset = position > 0 ? position - start - 1 : -1;
+      
+      item.protein_info = {
+        ...item.protein_info,
+        wt_seq_local: this.formatSequence(item.protein_info.wt_seq.substring(start, end)), 
+        mut_seq_local: this.formatSequence(item.protein_info.mut_seq.substring(start, end)),
+        position: position,
+        mut_pos_offset: mut_pos_offset
+      };
+    }
+  });
+},
     getRegulomeClass(score) {
     if (!score || typeof score !== 'object') return 'bg-secondary';
     
