@@ -30,10 +30,16 @@
 
           <!-- 完成状态 -->
           <template v-else-if="taskStatus === 'completed'">
+            <!-- 排序提示 -->
+            <div class="alert alert-info mb-3" v-if="mergedData.length > 0">
+              提示：点击<span class="fw-bold">变异ID</span>、<span class="fw-bold">染色体</span>、
+              <span class="fw-bold">临床意义</span>或<span class="fw-bold">RegulomeDB分数</span>表头可进行排序
+            </div>
+            
             <!-- PRS评分 -->
             <div class="mb-4">
               <h4>乳腺癌PRS评分: 
-                <span class="text-primary">{{ prsScore }}</span>
+                <span class="text-primary" data-bs-toggle="tooltip" title="多基因风险评分（Polygenic Risk Score）是一种基于多个遗传变异来评估个体患病风险的方法">{{ prsScore }}</span>
                 <span class="badge" :class="riskBadgeClass">{{ prsRisk }}</span>
               </h4>
               <p class="text-muted">基于 {{ mergedData.length }} 个变异计算</p>
@@ -81,15 +87,47 @@
               <table class="table table-striped">
                 <thead>
                   <tr>
-                    <th>变异ID</th>
-                    <th>染色体</th>
+                    <th @click="sortBy('id')" class="sortable-header">
+                      <div class="d-flex align-items-center">
+                        <span>变异ID</span>
+                        <span class="sort-indicators ms-1">
+                          <i class="bi bi-caret-up-fill" :class="{'text-primary': sortField === 'id' && sortDirection === 'asc'}"></i>
+                          <i class="bi bi-caret-down-fill" :class="{'text-primary': sortField === 'id' && sortDirection === 'desc'}"></i>
+                        </span>
+                      </div>
+                    </th>
+                    <th @click="sortBy('chrom')" class="sortable-header">
+                      <div class="d-flex align-items-center">
+                        <span>染色体</span>
+                        <span class="sort-indicators ms-1">
+                          <i class="bi bi-caret-up-fill" :class="{'text-primary': sortField === 'chrom' && sortDirection === 'asc'}"></i>
+                          <i class="bi bi-caret-down-fill" :class="{'text-primary': sortField === 'chrom' && sortDirection === 'desc'}"></i>
+                        </span>
+                      </div>
+                    </th>
                     <th>位置</th>
                     <th>参考序列</th>
                     <th>变异序列</th>
                     <th>基因型</th>
-                    <th>临床意义</th>
+                    <th @click="sortBy('ClinicalSignificance')" class="sortable-header" data-bs-toggle="tooltip" title="ClinVar数据库提供的变异临床意义分类">
+                      <div class="d-flex align-items-center">
+                        <span>临床意义</span>
+                        <span class="sort-indicators ms-1">
+                          <i class="bi bi-caret-up-fill" :class="{'text-primary': sortField === 'ClinicalSignificance' && sortDirection === 'asc'}"></i>
+                          <i class="bi bi-caret-down-fill" :class="{'text-primary': sortField === 'ClinicalSignificance' && sortDirection === 'desc'}"></i>
+                        </span>
+                      </div>
+                    </th>
                     <th>基因</th>
-                    <th>RegulomeDB分数</th>
+                    <th @click="sortBy('regulome_score')" class="sortable-header" data-bs-toggle="tooltip" title="RegulomeDB评分：评估非编码变异的调控潜力，分数越低表示调控证据越强">
+                      <div class="d-flex align-items-center">
+                        <span>RegulomeDB分数</span>
+                        <span class="sort-indicators ms-1">
+                          <i class="bi bi-caret-up-fill" :class="{'text-primary': sortField === 'regulome_score' && sortDirection === 'asc'}"></i>
+                          <i class="bi bi-caret-down-fill" :class="{'text-primary': sortField === 'regulome_score' && sortDirection === 'desc'}"></i>
+                        </span>
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -265,7 +303,9 @@ export default {
       mergedData: [],
       currentPage: 1,
       pageSize: 10,
-      isGeneratingPDF: false
+      isGeneratingPDF: false,
+      sortField: null,        // 当前排序字段
+      sortDirection: 'asc'    // 排序方向：asc 或 desc
     }
   },
   computed: {
@@ -282,10 +322,53 @@ export default {
       }
       return pages
     },
+    // 排序后的分页数据
     paginatedData() {
-      const start = (this.currentPage - 1) * this.pageSize
-      const end = start + this.pageSize
-      return this.mergedData.slice(start, end)
+      let sortedData = [...this.mergedData];
+      
+      if (this.sortField) {
+        sortedData.sort((a, b) => {
+          let valueA, valueB;
+          
+          // 根据不同的排序字段获取值
+          switch (this.sortField) {
+            case 'id':
+              valueA = a.variant_info.id || '';
+              valueB = b.variant_info.id || '';
+              break;
+            case 'chrom':
+              valueA = this.parseChromosome(a.variant_info.chrom || '');
+              valueB = this.parseChromosome(b.variant_info.chrom || '');
+              break;
+            case 'ClinicalSignificance':
+              valueA = a.clinvar_data?.ClinicalSignificance || '';
+              valueB = b.clinvar_data?.ClinicalSignificance || '';
+              break;
+            case 'regulome_score':
+              // 处理regulome_score对象排序
+              valueA = a.regulome_score ? a.regulome_score.ranking : '';
+              valueB = b.regulome_score ? b.regulome_score.ranking : '';
+              break;
+            default:
+              valueA = '';
+              valueB = '';
+          }
+          
+          // 比较值
+          if (valueA < valueB) {
+            return this.sortDirection === 'asc' ? -1 : 1;
+          }
+          if (valueA > valueB) {
+            return this.sortDirection === 'asc' ? 1 : -1;
+          }
+          return 0;
+        });
+      }
+      
+      // 分页
+      const start = (this.currentPage - 1) * this.pageSize;
+      const end = start + this.pageSize;
+      return sortedData.slice(start, end);
     },
     clinvarChartData() {
       // 统计临床意义分布
@@ -357,7 +440,40 @@ export default {
   created() {
     this.fetchResults()
   },
+  mounted() {
+    // 初始化tooltip
+    if (typeof $ !== 'undefined') {
+      $('[data-bs-toggle="tooltip"]').tooltip();
+    }
+  },
   methods: {
+    // 排序方法
+    sortBy(field) {
+      // 如果点击的是同一个字段，切换排序方向
+      if (this.sortField === field) {
+        this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+      } else {
+        // 如果点击的是不同字段，重置排序方向
+        this.sortField = field;
+        this.sortDirection = 'asc';
+      }
+      
+      // 重置到第一页
+      this.currentPage = 1;
+    },
+    
+    // 解析染色体值为可排序的数字
+    parseChromosome(chrom) {
+      // 移除'chr'前缀
+      const numPart = chrom.replace('chr', '');
+      // 处理特殊染色体
+      if (numPart === 'X') return 23;
+      if (numPart === 'Y') return 24;
+      if (numPart === 'MT') return 25;
+      // 转换为数字
+      return parseInt(numPart) || 0;
+    },
+    
     async fetchResults() {
       const taskId = this.$route.query.task_id
       if (!taskId) {
@@ -637,5 +753,41 @@ export default {
 
 .list-group-item {
   padding: 0.75rem 1.25rem;
+}
+
+/* 可排序表头样式 */
+.sortable-header {
+  cursor: pointer;
+  position: relative;
+}
+
+.sortable-header:hover {
+  background-color: #f0f0f0;
+}
+
+/* 排序指示器样式 */
+.sort-indicators {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin-left: 4px;
+  width: 16px;
+  height: 100%;
+}
+
+.sort-indicators i {
+  font-size: 0.7rem;
+  line-height: 0.8;
+  color: #ccc;
+  transition: color 0.2s;
+}
+
+.sortable-header:hover .sort-indicators i {
+  color: #666;
+}
+
+.sort-indicators .text-primary {
+  color: #0d6efd !important;
 }
 </style>
