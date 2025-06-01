@@ -243,11 +243,9 @@ def generate_report():
         protein_variants = [v for v in variants if v.get('protein_info')]
         if protein_variants:
             pdf.add_section("蛋白质变异信息", [f"共发现 {len(protein_variants)} 个影响蛋白质功能的变异"])
-            
             # 只展示前3个蛋白质变异
             for idx, variant in enumerate(protein_variants[:3]):
                 protein_info = variant.get('protein_info', {})
-                # 添加蛋白质特征
                 protein_info['protein_features'] = variant.get('protein_features', {})
                 pdf.add_protein_section(f"蛋白质变异 #{idx+1}", protein_info)
         
