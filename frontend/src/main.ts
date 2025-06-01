@@ -10,6 +10,8 @@ import '@assets/css/global.css'
 // 导入Bootstrap
 import 'bootstrap/dist/css/bootstrap.min.css'
 import 'bootstrap/dist/js/bootstrap.bundle.min.js'
+import 'bootstrap-icons/font/bootstrap-icons.css'
+
 
 const app = createApp(App)
 // 配置 axios 基础 URL
