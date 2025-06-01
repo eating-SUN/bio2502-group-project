@@ -139,6 +139,8 @@ export default {
       this.uploadSuccess = '';
     },
     async submitFile() {
+      this.uploadError = '';
+      this.rsidError = '';
       if (!this.selectedFile) {
         this.uploadError = '请选择要上传的VCF文件';
         return;
@@ -185,6 +187,8 @@ export default {
       }
     },
     async submitRSID() {
+      this.uploadError = '';
+      this.rsidError = '';
       if (!this.rsid) {
         this.rsidError = '请输入有效的RSID';
         return;
@@ -223,32 +227,60 @@ export default {
       }, 3000);
     },
     async checkTaskStatus() {
-      if (!this.taskId) return;
+  if (!this.taskId) return;
 
-      try {
-        const response = await getTaskStatus(this.taskId); // 调用 api.js 中的 getTaskStatus 函数
-        const { status, progress } = response.data;
+  try {
+    const response = await getTaskStatus(this.taskId);
+    const { status, progress, task_type } = response.data; 
 
-        this.progress = progress;
+    this.progress = progress;
 
-        if (status === 'completed') {
-          clearInterval(this.progressInterval);
-          this.$router.push({ path: '/results', query: { task_id: this.taskId } });
-        } else if (status === 'failed') {
-          clearInterval(this.progressInterval);
-          this.uploadError = response.data.error_message || '任务处理失败';
-        }
-      } catch (error) {
-        console.error('获取任务状态失败:', error);
-      }
-    },
-  },
-  beforeUnmount() {
-    if (this.progressInterval) {
+    if (status === 'completed') {
       clearInterval(this.progressInterval);
+      this.$router.push({ path: '/results', query: { task_id: this.taskId } });
+    } else if (status === 'failed') {
+      clearInterval(this.progressInterval);
+      this.progressInterval = null;
+      
+      // 根据任务来源显示错误信息
+      if (task_type === 'vcf') {
+      this.uploadError = response.data.error_message || 'VCF处理失败';
+      this.rsidError = '';
+    } else if (task_type === 'rsid') {
+      this.rsidError = response.data.error_message || 'RSID查询失败';
+      this.uploadError = '';
+    } else {
+      // 未知类型的错误
+      this.uploadError = '未知任务类型的错误:'+response.data.error_message || '任务处理失败';
+      this.rsidError = '未知任务类型的错误:'+response.data.error_message || '任务处理失败';
+    }
+    }
+  } catch (error) {
+    console.error('获取任务状态失败:', error);
+    clearInterval(this.progressInterval);
+    this.progressInterval = null;
+    
+    const errorMsg = error.response?.data?.error || 
+                    error.message || 
+                    '服务不可用，请稍后重试';
+    
+    // 根据当前操作显示错误
+    if (this.isUploading) {
+      this.uploadError = `状态检查失败: ${errorMsg}`;
+      this.rsidError = '';
+    } else if (this.isQuerying) {
+      this.rsidError = `状态检查失败: ${errorMsg}`;
+      this.uploadError = '';
+    }
+  }
+},
+  beforeUnmount() {
+  if (this.progressInterval) {
+    clearInterval(this.progressInterval);
+    this.progressInterval = null;
     }
   },
-};
+}}
 </script>
 
 <style scoped>

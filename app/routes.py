@@ -71,15 +71,18 @@ def get_task_status_api(task_id):
         if not task:
             return jsonify({'error': 'Invalid task ID'}), 404
 
+
         if task['status'] == 'failed':
-            return jsonify({
+            return jsonify({  # 移除500状态码
                 'status': 'failed',
+                'task_type': task.get('task_type', 'unknown') ,
                 'error_message': task.get('error_message', 'Unknown error')
-            }), 500
+            })
 
         response = {
             'status': task['status'],
-            'progress': task.get('progress', 0)
+            'progress': task.get('progress', 0),
+            'task_type': task.get('task_type', 'unknown') 
         }
 
         if task['status'] == 'completed':
@@ -335,6 +338,7 @@ import traceback
 def process_vcf_background(task_id, file_path, tasks):
     try:
         print(f"[INFO][{task_id}] 开始解析 VCF 文件: {file_path}")
+        tasks[task_id]['task_type'] = 'vcf'
         tasks[task_id]['progress'] = 10
         variants = process_upload.process_vcf(file_path)
         tasks[task_id]['progress'] = 20
@@ -347,12 +351,14 @@ def process_vcf_background(task_id, file_path, tasks):
         traceback.print_exc()
         tasks[task_id]['status'] = 'failed'
         tasks[task_id]['progress'] = 100
+        tasks[task_id]['task_type'] = 'vcf'
         tasks[task_id]['error_message'] = str(e)
 
 
 def process_rsid_background(task_id, rsid, tasks):
     try:
         print(f"[INFO][{task_id}] 开始处理 rsID : {rsid}")
+        tasks[task_id]['task_type'] = 'rsid'
         variants = process_upload.process_rsid(rsid)
         tasks[task_id]['progress'] = 10
         print(f"[INFO][{task_id}] rsID 转换为变异记录完成")
@@ -365,6 +371,7 @@ def process_rsid_background(task_id, rsid, tasks):
         traceback.print_exc()
         tasks[task_id]['status'] = 'failed'
         tasks[task_id]['progress'] = 100
+        tasks[task_id]['task_type'] = 'rsid'
         tasks[task_id]['error_message'] = str(e)
 
 
