@@ -16,12 +16,6 @@
           <li class="nav-item">
             <router-link class="nav-link" to="/results">分析结果</router-link>
           </li>
-          <li class="nav-item">
-            <router-link class="nav-link" to="/results">下载报告</router-link>
-          </li>
-          <li v-if="showReupload" class="nav-item">
-            <router-link class="nav-link" to="/upload">重新上传</router-link>
-          </li>
         </ul>
       </div>
     </div>

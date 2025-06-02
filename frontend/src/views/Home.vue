@@ -126,91 +126,83 @@ export default {
 }
 </script>
 
+
 <style scoped>
+/* 头部内容 */
+header {
+  position: relative; /* 为DNA容器提供定位上下文 */
+  overflow: hidden; /* 隐藏溢出部分 */
+}
+
+/* DNA容器 */
 .dna-container {
-    width: min(90vw, 600px);  /* 最大宽度600px，小屏自适应 */
-    max-height: 50vh;         /* 最大高度50%视口高度 */
-    margin: 10px auto;        /* 居中显示 */
-    position: relative;
-    overflow: hidden;  
-    justify-content: center;
-    align-items: center; 
-    display: flex;      
-}
-.dna-container::before {
-    content: "";
-    display: block;
-    padding-top: 100%;            /* 保持1:1比例 */
+  width: 300px;
+  height: 300px;
+  margin: 20px auto;
+  position: relative;
 }
 
+/* 圆形裁剪 */
 .circle-clip {
-    width: 300px;
-    height: 300px;
-    border-radius: 50%;
-    overflow: hidden;
-    justify-content: center;
-    align-items: center;
-    position: relative;
-    margin:10px auto;
-}
-
-.rotating-svg {
-  /* 关键设置 - 修复偏移和旋转中心 */
   position: absolute;
-  top: 0%;
-  left: 0%;
-  
-  /* 初始位置补偿 */
-  transform: 
-    translate(-50%, -50%)  /* 将中心点移动到容器中心 */
-    rotate(0deg);
-  
-  /* 尺寸调整 */
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
-  
-  /* 旋转中心和动画 */
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.3); /* 添加柔和的光晕效果 */
+}
+
+/* DNA图片 */
+.rotating-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* 确保图片填充整个容器 */
+  animation: dna-rotate 10s linear infinite;
   transform-origin: center center;
-  animation: dna-rotate 5s linear infinite;
-  
-  /* 确保图像完整显示 */
-  object-fit: contain;
 }
 
+/* 更平滑的旋转动画 */
 @keyframes dna-rotate {
-    0% { transform: rotate(0deg); }
-    25% { transform: rotate(20deg); }
-    75% { transform: rotate(-20deg); }
-    100% { transform: rotate(0deg); }
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
-
-
-
-/* 响应式优化 */
+/* 响应式优化 - 手机端 */
 @media (max-width: 768px) {
-    .dna-container::before {
-        padding-top: 75%;         /* 手机端改为4:3比例 */
-    }
-    
-    .circle-clip {
-        width: 60%;               /* 放大显示 */
-        max-width: none;
-    }
+  .dna-container {
+    width: 200px;
+    height: 200px;
+    margin: 15px auto;
+  }
+  
+  header h1 {
+    font-size: 2.2rem;
+  }
+  
+  header p {
+    font-size: 1.1rem;
+  }
 }
 
+/* 其他样式保持不变 */
 .text-decoration-none:hover {
   text-decoration: underline !important;
   color: #6a11cb;
 }
 
+.research-card {
+  background: #F8F9FA;
+  border-left: 5px solid #2A5CAA;
+}
 
-    .research-card {
-        background: #F8F9FA;
-        border-left: 5px solid #2A5CAA;
-    }
-    .method-step {
-        font-size: 1.5rem;
-        color: #2A5CAA;
-    }
+.method-step {
+  font-size: 1.5rem;
+  color: #2A5CAA;
+}
+
 </style>
