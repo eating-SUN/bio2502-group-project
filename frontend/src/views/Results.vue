@@ -118,7 +118,7 @@
                         </span>
                       </div>
                     </th>
-                    <th>基因</th>
+                    <th>疾病名称</th>
                     <th @click="sortBy('regulome_score')" class="sortable-header" data-bs-toggle="tooltip" title="RegulomeDB评分：评估非编码变异的调控潜力，分数越低表示调控证据越强">
                       <div class="d-flex align-items-center">
                         <span>RegulomeDB分数</span>
@@ -143,7 +143,8 @@
                         {{ item.clinvar_data?.ClinicalSignificance || '未知' }}
                       </span>
                     </td>
-                    <td>{{ item.clinvar_data?.Gene || '-' }}</td>
+                    <td class="text-monospace">{{ item.clinvar_data?.ClinvarDiseaseName || '-' }}</td>
+                    
                     <td>
                       <span v-if="item.regulome_score && typeof item.regulome_score === 'object'" class="badge" :class="getRegulomeClass(item.regulome_score)">
                         {{ formatRegulomeScore(item.regulome_score) }}
