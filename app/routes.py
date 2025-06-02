@@ -148,6 +148,8 @@ def get_results_api():
         'variants': task.get('result', {}).get('variants', [])
     })
 
+
+
 @main.route('/api/report', methods=['GET'])
 def generate_report():
     task_id = request.args.get('task_id')
@@ -165,7 +167,9 @@ def generate_report():
     try:
         # 生成PDF报告 - 设置自定义标题
         custom_title = "乳腺癌遗传风险分析报告"
-        pdf = pdf_report.PDFReport(title=custom_title)
+        pdf = pdf_report.PDFReport(title=custom_title)  # 修复初始化参数
+        
+        # 添加封面标题
         pdf.set_title(custom_title)
         
         # 添加PRS信息
@@ -246,7 +250,12 @@ def generate_report():
             # 只展示前3个蛋白质变异
             for idx, variant in enumerate(protein_variants[:3]):
                 protein_info = variant.get('protein_info', {})
-                protein_info['protein_features'] = variant.get('protein_features', {})
+                # 确保有足够的序列信息
+                if 'wt_seq' not in protein_info:
+                    protein_info['wt_seq'] = "无野生型序列数据"
+                if 'mut_seq' not in protein_info:
+                    protein_info['mut_seq'] = "无突变型序列数据"
+                
                 pdf.add_protein_section(f"蛋白质变异 #{idx+1}", protein_info)
         
         # 添加图表 - 使用try-except确保即使图表失败也能生成报告
@@ -287,7 +296,7 @@ def generate_report():
         
         # 保存临时文件
         with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
-            pdf.output(tmp.name)
+            pdf.output(tmp.name, 'F')  # 使用output方法保存文件
             tmp_path = tmp.name
         
         return send_file(
@@ -300,7 +309,7 @@ def generate_report():
     except Exception as e:
         print(f"生成报告失败: {e}")
         traceback.print_exc()
-        return jsonify({'error': '报告生成失败'}), 500
+        return jsonify({'error': f'报告生成失败: {str(e)}'}), 500
     
     finally:
         if tmp_path and os.path.exists(tmp_path):
@@ -308,7 +317,8 @@ def generate_report():
                 os.unlink(tmp_path)
             except Exception as e:
                 print(f"删除临时文件失败: {e}")
-                
+
+
 # 添加前端路由 fallback
 @main.route('/', defaults={'path': ''})
 @main.route('/<path:path>')
