@@ -10,6 +10,10 @@ import tempfile
 import io
 import base64
 import platform
+import re
+import matplotlib.table as mtable
+import matplotlib as mpl
+import textwrap
 
 class PDFReport(FPDF):
     def __init__(self, title="变异乳腺癌致病性分析报告"):
@@ -18,6 +22,7 @@ class PDFReport(FPDF):
         font_dir = os.path.join(os.path.dirname(__file__), 'fonts')
         simsun_path = os.path.join(font_dir, 'simsun.ttc')
         simhei_path = os.path.join(font_dir, 'simhei.ttf')
+        self.base_line_height = 10
         
         # 记录字体是否加载成功
         self.fonts_available = {
@@ -66,33 +71,94 @@ class PDFReport(FPDF):
         self.setup_matplotlib_fonts()
     
     def setup_matplotlib_fonts(self):
-        """配置Matplotlib使用中文字体"""
+        """配置Matplotlib使用中文字体 - 更健壮的解决方案"""
         try:
-            # 尝试使用SimHei作为默认中文字体
-            if self.fonts_available['SimHei']:
-                font_path = os.path.join(os.path.dirname(__file__), 'fonts', 'simhei.ttf')
-                if os.path.exists(font_path):
-                    # 添加字体到Matplotlib
-                    font_prop = fm.FontProperties(fname=font_path)
-                    plt.rcParams['font.family'] = font_prop.get_name()
-                    plt.rcParams['font.sans-serif'] = [font_prop.get_name()]
-                    plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
-                    print(f"Matplotlib使用字体: {font_prop.get_name()}")
-                    return
-            
-            # 回退到系统支持的中文字体
+            # 优先使用系统安装的中文字体
             system = platform.system()
             if system == "Windows":
-                plt.rcParams['font.sans-serif'] = ['SimHei']
+                # Windows系统常见中文字体
+                chinese_fonts = ['Microsoft YaHei', 'SimHei', 'SimSun', 'KaiTi', 'FangSong']
             elif system == "Darwin":  # macOS
-                plt.rcParams['font.sans-serif'] = ['Arial Unicode MS']
+                # macOS系统常见中文字体
+                chinese_fonts = ['Arial Unicode MS', 'PingFang SC', 'Heiti SC', 'Songti SC']
             else:  # Linux
+                # Linux系统常见中文字体
+                chinese_fonts = ['WenQuanYi Micro Hei', 'WenQuanYi Zen Hei', 'AR PL UMing CN', 'Noto Sans CJK SC']
+            
+            # 检查系统是否安装了这些字体
+            available_fonts = [f.name for f in fm.fontManager.ttflist]
+            selected_font = None
+            
+            # 查找第一个可用的中文字体
+            for font in chinese_fonts:
+                if font in available_fonts:
+                    selected_font = font
+                    break
+            
+            # 如果系统没有安装中文字体，尝试使用我们提供的字体
+            if not selected_font:
+                print("系统未安装常见中文字体，尝试使用本地字体文件")
+                font_dir = os.path.join(os.path.dirname(__file__), 'fonts')
+                
+                # 尝试使用黑体
+                simhei_path = os.path.join(font_dir, 'simhei.ttf')
+                if os.path.exists(simhei_path):
+                    try:
+                        # 将字体文件添加到matplotlib字体库
+                        fm.fontManager.addfont(simhei_path)
+                        selected_font = 'SimHei'
+                        print(f"成功添加本地黑体字体: {simhei_path}")
+                    except Exception as e:
+                        print(f"添加本地黑体字体失败: {e}")
+                
+                # 如果黑体失败，尝试使用宋体
+                if not selected_font:
+                    simsun_path = os.path.join(font_dir, 'simsun.ttc')
+                    if os.path.exists(simsun_path):
+                        try:
+                            fm.fontManager.addfont(simsun_path)
+                            selected_font = 'SimSun'
+                            print(f"成功添加本地宋体字体: {simsun_path}")
+                        except Exception as e:
+                            print(f"添加本地宋体字体失败: {e}")
+            
+            # 设置matplotlib使用找到的字体
+            if selected_font:
+                # 设置全局字体
+                plt.rcParams['font.family'] = selected_font
+                plt.rcParams['font.sans-serif'] = [selected_font]
+                plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
+                print(f"Matplotlib使用字体: {selected_font}")
+                
+                # 检查字体是否支持中文
+                test_text = "中文测试"
+                try:
+                    # 创建一个测试图形来验证字体
+                    fig, ax = plt.subplots(figsize=(2, 1))
+                    ax.text(0.5, 0.5, test_text, fontsize=12, ha='center')
+                    ax.axis('off')
+                    buf = io.BytesIO()
+                    plt.savefig(buf, format='png', dpi=100)
+                    plt.close(fig)
+                    print("中文字体测试成功")
+                except Exception as e:
+                    print(f"中文字体测试失败: {e}")
+                    # 回退到英文字体
+                    plt.rcParams['font.family'] = 'sans-serif'
+                    plt.rcParams['font.sans-serif'] = ['DejaVu Sans']
+            else:
+                print("警告: 未找到可用的中文字体，使用默认英文字体")
+                plt.rcParams['font.family'] = 'sans-serif'
                 plt.rcParams['font.sans-serif'] = ['DejaVu Sans']
             
-            plt.rcParams['axes.unicode_minus'] = False
-            print(f"使用系统默认中文字体: {plt.rcParams['font.sans-serif'][0]}")
+            # 确保设置生效
+            mpl.rcParams.update(mpl.rcParams)
+            
         except Exception as e:
             print(f"配置Matplotlib字体失败: {e}")
+            # 回退到英文字体
+            plt.rcParams['font.family'] = 'sans-serif'
+            plt.rcParams['font.sans-serif'] = ['DejaVu Sans']
     
     def set_font_based_on_style(self, style=''):
         """根据样式选择合适的字体"""
@@ -143,159 +209,259 @@ class PDFReport(FPDF):
         self.ln(3)
         
         # 设置节内容
-        self.font_size = 12
+        self.font_size = 12  # 保持字体大小不变
         self.set_font_based_on_style('')
-        for line in content_lines:
-            self.cell(0, 7, line, 0, 1)
-        self.ln(5)
         
-    def add_table(self, title, headers, rows):
+        # 计算可用宽度
+        available_width = self.w - 2 * self.l_margin  # 减去左右边距
+            
+        for line in content_lines:
+        # 处理空行
+            if line.strip() == "":
+                self.ln(5)
+            else:
+                # 计算单元格高度
+                cell_height = self.calculate_cell_height(line, self.font_size)
+                
+                try:
+                    # 使用可用宽度和计算出的高度作为 multi_cell 的参数
+                    self.multi_cell(available_width, cell_height, line, 0, 'L')
+                except Exception as e:
+                    print(f"Error rendering line: {line}")
+                    raise e
+            self.ln(5)
+
+    def add_table(self, title, headers, rows, max_rows=15):
+        """添加表格 - 使用Matplotlib生成表格图片"""
         self.add_section(title, [])
         
-        # 表格设置
-        col_widths = [25, 20, 15, 20, 20, 35, 25, 30]  # 调整列宽
+        # 如果行数超过最大值，截断并添加提示
+        if len(rows) > max_rows:
+            rows = rows[:max_rows]
+            self.set_font_based_on_style('')
+            self.cell(0, 8, f"注意：表格只显示前{max_rows}行（共{len(rows)}行）", 0, 1)
+            self.ln(5)
         
-        # 表头
-        self.set_fill_color(79, 129, 189)  # 蓝色
-        self.set_text_color(255)
-        self.font_size = 12
-        self.set_font_based_on_style('B')
+        # 确保Matplotlib字体设置是最新的
+        self.setup_matplotlib_fonts()
         
-        for i, header in enumerate(headers):
-            self.cell(col_widths[i], 10, header, 1, 0, 'C', True)
-        self.ln()
+        # 准备表格数据
+        cell_text = [headers] + rows
         
-        # 表格内容
-        self.set_text_color(0)
-        self.font_size = 10
-        self.set_font_based_on_style('')
-        fill = False
+        # 计算表格尺寸
+        nrows = len(cell_text)
+        ncols = len(headers)
         
-        for row in rows:
-            self.set_fill_color(245, 245, 245) if fill else self.set_fill_color(255, 255, 255)
-            
-            for i, cell in enumerate(row):
-                # 特殊处理临床意义和RegulomeDB分数的颜色
-                if headers[i] == "临床意义":
-                    if "Pathogenic" in cell:
-                        self.set_text_color(220, 53, 69)  # 红色
-                    elif "Likely pathogenic" in cell:
-                        self.set_text_color(255, 193, 7)  # 黄色
-                    elif "Benign" in cell:
-                        self.set_text_color(40, 167, 69)  # 绿色
-                    else:
-                        self.set_text_color(0)
+        # 设置图像尺寸（根据行列数动态调整）
+        fig_height = max(0.4 * nrows + 0.5, 2)  # 基础高度 + 标题空间，最小2英寸
+        fig_width = min(10, max(ncols * 1.5, 6))  # 最大宽度限制，最小6英寸
+        
+        # 创建图像和轴
+        fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+        ax.axis('off')
+        
+        # 创建表格
+        table = ax.table(
+            cellText=cell_text,
+            loc='center',
+            cellLoc='center',
+            colWidths=[1.0 / ncols] * ncols  # 平均列宽
+        )
+        
+        # 设置表格样式
+        table.auto_set_font_size(False)
+        table.set_fontsize(10)
+        table.scale(1, 1.5)  # 缩放表格以更好地适应
+        
+        # 设置表头样式
+        for i in range(ncols):
+            cell = table[0, i]
+            cell.set_text_props(weight='bold')  # 粗体
+            cell.set_facecolor('#4F81BD')  # 蓝色背景
+            cell.set_edgecolor('white')    # 边框颜色
+            cell.set_text_props(color='white') # 白色文字
+        
+        # 设置表格单元格样式
+        for i in range(1, nrows):
+            for j in range(ncols):
+                cell = table[i, j]
+                cell.set_edgecolor('#D3D3D3')  # 浅灰色边框
                 
-                if headers[i] == "RegulomeDB分数":
-                    if cell and isinstance(cell, str) and cell.startswith(('1', '2')):
-                        self.set_text_color(220, 53, 69)  # 红色
-                    elif cell and isinstance(cell, str) and cell.startswith(('3', '4')):
-                        self.set_text_color(255, 193, 7)  # 黄色
-                    elif cell and isinstance(cell, str) and cell.startswith(('5', '6')):
-                        self.set_text_color(40, 167, 69)  # 绿色
-                    else:
-                        self.set_text_color(0)
-                
-                self.cell(col_widths[i], 8, str(cell), 1, 0, 'C', fill)
-                self.set_text_color(0)  # 重置文本颜色
-            
-            self.ln()
-            fill = not fill
+                # 交替行颜色
+                if i % 2 == 1:
+                    cell.set_facecolor('#F0F0F0')
+                else:
+                    cell.set_facecolor('white')
         
-        self.ln(10)
+        # 保存表格图片
+        buf = io.BytesIO()
+        plt.tight_layout()
+        plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+        plt.close(fig)
+        
+        # 在PDF中添加表格图片
+        img_width = 180  # 固定宽度（毫米）
+        img_height = img_width * fig_height / fig_width  # 保持宽高比
+        
+        # 检查是否需要分页
+        if self.get_y() + img_height > self.page_break_trigger:
+            self.add_page()
+        
+        self.image(buf, type='png', x=10, w=img_width)
+        self.ln(5)
+    
+    def calculate_cell_height(self, text, font_size):
+        # 假设每行的高度大约是字体大小的1.2倍
+        line_height = font_size * 1.2
+        lines = text.count('\n') + 1  # 计算文本中的行数
+        return lines * line_height
+    
+    def _calculate_multi_cell_height(self, text, width, line_height):
+        """计算多行文本的高度"""
+        if not text:
+            return line_height
+        
+        words = text.split()
+        lines = 0
+        current_line = ""
+        
+        for word in words:
+            test_line = current_line + word + " "
+            if self.get_string_width(test_line) < width:
+                current_line = test_line
+            else:
+                lines += 1
+                current_line = word + " "
+        
+        if current_line:
+            lines += 1
+        
+        return lines * line_height
 
     def add_protein_section(self, title, protein_info):
         """添加蛋白质变异信息部分"""
         self.add_section(title, [])
         
-        # 基本信息
-        self.set_font_based_on_style('B')
-        self.cell(0, 8, f"蛋白质ID: {protein_info.get('protein_id', 'N/A')}", 0, 1)
-        self.cell(0, 8, f"位置: {protein_info.get('position', 'N/A')}", 0, 1)
-        self.cell(0, 8, f"突变类型: {protein_info.get('mutation_type', 'N/A')}", 0, 1)
-        self.cell(0, 8, f"氨基酸变化: {protein_info.get('ref_aa', '')} → {protein_info.get('alt_aa', '')}", 0, 1)
+        # 基本信息（紧凑布局）
+        self.set_font('SimHei', '', 12)
+        info_text = (
+            f"蛋白质ID: {protein_info.get('protein_id', 'N/A')} | "
+            f"位置: {protein_info.get('position', 'N/A')} | "
+            f"突变类型: {protein_info.get('mutation_type', 'N/A')} | "
+            f"氨基酸变化: {protein_info.get('ref_aa', '')} → {protein_info.get('alt_aa', '')}"
+        )
+        self.multi_cell(0, 8, info_text, 0, 'L')
         self.ln(5)
         
-        # 序列对比
-        self.set_font_based_on_style('B')
+        # 序列对比标题
+        self.set_font('SimHei', '', 12)
         self.cell(0, 8, "序列对比:", 0, 1)
+        self.ln(2)
         
-        # 野生型序列
-        self.set_font_based_on_style('')
-        self.cell(40, 8, "野生型序列:", 0, 0)
-        self.set_font('courier', '', 10)  # 使用等宽字体
-        self.cell(0, 8, protein_info.get('wt_seq_local', 'N/A'), 0, 1)
+        # 获取序列数据
+        wt_seq = protein_info.get('wt_seq', '')
+        mut_seq = protein_info.get('mut_seq', '') if protein_info.get('mut_seq') else ""
         
-        # 突变型序列
-        self.set_font_based_on_style('')
-        self.cell(40, 8, "突变型序列:", 0, 0)
-        self.set_font('courier', '', 10)
-        self.set_text_color(220, 53, 69)  # 红色
-        self.cell(0, 8, protein_info.get('mut_seq_local', 'N/A'), 0, 1)
-        self.set_text_color(0)  # 重置文本颜色
+        # 尝试获取位置信息
+        try:
+            position = int(protein_info.get('position', 0)) - 1  # 转换为0-based索引
+        except:
+            position = -1  # 无效位置
+        
+        # 限制序列显示长度
+        MAX_DISPLAY_LENGTH = 20
+        
+        if len(wt_seq) > MAX_DISPLAY_LENGTH:
+            # 截取包含突变位置的区域
+            if 0 <= position < len(wt_seq):
+                start_idx = max(0, position - MAX_DISPLAY_LENGTH//2)
+                end_idx = min(len(wt_seq), position + MAX_DISPLAY_LENGTH//2)
+                wt_seq = wt_seq[start_idx:end_idx]
+                if mut_seq:
+                    mut_seq = mut_seq[start_idx:end_idx]
+                # 调整位置索引
+                position = position - start_idx
+            else:
+                # 如果位置无效，只显示开头
+                wt_seq = wt_seq[:MAX_DISPLAY_LENGTH]
+                if mut_seq:
+                    mut_seq = mut_seq[:MAX_DISPLAY_LENGTH]
+                position = -1
+        
+        # 显示野生型序列
+        self.set_font('SimSun', '', 10)
+        self.cell(0, 8, f"野生型序列 ({len(wt_seq)} aa):", 0, 1)
+        
+        # 使用等宽字体显示序列
+        self.set_font('Courier', '', 10)
+        self.multi_cell(
+            0,
+            8, 
+            self._format_sequence(wt_seq, position),
+            0, 
+            'L'
+        )
+        self.ln(2)
+        
+        # 显示突变型序列
+        if mut_seq:
+            self.set_font('SimSun', '', 10)
+            self.cell(0, 8, f"突变型序列 ({len(mut_seq)} aa):", 0, 1)
+            self.set_font('Courier', '', 10)
+            self.multi_cell(
+                0,
+                8, 
+                self._format_sequence(mut_seq, position),
+                0, 
+                'L'
+            )
+        else:
+            self.set_font('SimSun', '', 10)
+            self.cell(0, 8, "突变型序列: 无数据", 0, 1)
+        
         self.ln(5)
         
-        # 蛋白质特征变化
-        features = protein_info.get('protein_features', {})
-        if features:
-            self.set_font_based_on_style('B')
-            self.cell(0, 8, "蛋白质特征变化:", 0, 1)
+        # 添加滚动提示（当内容过长时）
+        if len(wt_seq) > MAX_DISPLAY_LENGTH:
+            self.set_font('SimSun', '', 8)
+            self.cell(0, 5, "▶ 序列已截断显示（显示中间区域）", 0, 1)
+
+    def _format_sequence(self, sequence, mut_pos, line_length=80):
+        """格式化序列，添加行号和高亮突变位置"""
+        if not sequence:
+            return ""
+        
+        formatted = []
+        # 将序列分割为多行
+        for i in range(0, len(sequence), line_length):
+            chunk = sequence[i:i+line_length]
+            line_num = i + 1  # 氨基酸位置从1开始
+            line_header = f"{line_num:>4} | "
             
-            feature_names = [
-                "分子量变化", "芳香性变化", "不稳定指数变化", 
-                "疏水性变化", "等电点变化"
-            ]
-            feature_keys = [
-                "molecular_weight_change", "aromaticity_change", 
-                "instability_index_change", "gravy_change", 
-                "isoelectric_point_change"
-            ]
-            
-            self.set_font_based_on_style('')
-            for name, key in zip(feature_names, feature_keys):
-                value = features.get(key, 'N/A')
-                change_symbol = ""
-                change_color = 0  # 黑色
-                
-                if isinstance(value, (int, float)):
-                    if value > 0:
-                        change_symbol = "↑"
-                        change_color = 220, 53, 69  # 红色
-                    elif value < 0:
-                        change_symbol = "↓"
-                        change_color = 40, 167, 69  # 绿色
-                
-                self.cell(60, 8, name, 0, 0)
-                self.set_text_color(*change_color)
-                self.cell(0, 8, f"{value if isinstance(value, str) else f'{value:.4f}'} {change_symbol}", 0, 1)
-                self.set_text_color(0)  # 重置文本颜色
-            
-            self.ln(5)
-    
+            # 处理突变高亮
+            if 0 <= mut_pos < len(sequence) and i <= mut_pos < i+line_length:
+                pos_in_line = mut_pos - i
+                # 在突变位置前后添加标记
+                highlighted_chunk = (
+                    chunk[:pos_in_line] + 
+                    "[" + chunk[pos_in_line] + "]" + 
+                    chunk[pos_in_line+1:]
+                )
+                formatted.append(line_header + highlighted_chunk)
+            else:
+                formatted.append(line_header + chunk)
+        
+        return "\n".join(formatted)
+
     def add_chart(self, title, chart_type, chart_data):
         """添加图表到PDF - 使用Agg后端避免线程问题"""
         try:
+            # 确保Matplotlib字体设置是最新的
+            self.setup_matplotlib_fonts()
+            
             # 创建图表 - 使用Agg后端
             plt.switch_backend('Agg')  # 确保使用非交互式后端
             fig, ax = plt.subplots(figsize=(8, 5))
-            
-            # 设置中文字体
-            if self.fonts_available['SimHei']:
-                font_path = os.path.join(os.path.dirname(__file__), 'fonts', 'simhei.ttf')
-                font_prop = fm.FontProperties(fname=font_path)
-                plt.rcParams['font.family'] = font_prop.get_name()
-                plt.rcParams['font.sans-serif'] = [font_prop.get_name()]
-            else:
-                # 尝试使用系统默认中文字体
-                system = platform.system()
-                if system == "Windows":
-                    plt.rcParams['font.sans-serif'] = ['SimHei']
-                elif system == "Darwin":  # macOS
-                    plt.rcParams['font.sans-serif'] = ['Arial Unicode MS']
-                else:  # Linux
-                    plt.rcParams['font.sans-serif'] = ['DejaVu Sans']
-            
-            plt.rcParams['axes.unicode_minus'] = False
             
             if chart_type == "clinvar":
                 # 临床意义分布图
@@ -318,15 +484,23 @@ class PDFReport(FPDF):
                         filtered_colors.append(color)
                 
                 if filtered_sizes:
-                    ax.pie(filtered_sizes, labels=filtered_labels, colors=filtered_colors, autopct='%1.1f%%',
-                           startangle=90, wedgeprops={'edgecolor': 'white'})
-                    ax.axis('equal')  # 确保饼图是圆形
-                    ax.set_title('临床意义分布', fontproperties=font_prop if self.fonts_available['SimHei'] else None, fontsize=14)
+                    # 添加百分比标签
+                    def autopct_format(values):
+                        def my_format(pct):
+                            total = sum(values)
+                            val = int(round(pct*total/100.0))
+                            return f'{val}\n({pct:.1f}%)'
+                        return my_format
+                    
+                    ax.pie(filtered_sizes, labels=filtered_labels, colors=filtered_colors, 
+                           autopct=autopct_format(filtered_sizes), startangle=90, 
+                           wedgeprops={'edgecolor': 'white'}, textprops={'fontsize': 8})
+                    ax.axis('equal')
+                    ax.set_title('临床意义分布', fontsize=14)
                 else:
                     # 如果没有数据，显示占位符
                     ax.text(0.5, 0.5, '无临床意义数据', 
-                            ha='center', va='center', 
-                            fontproperties=font_prop if self.fonts_available['SimHei'] else None)
+                            ha='center', va='center', fontsize=12)
             
             elif chart_type == "prs_distribution":
                 # PRS分布图
@@ -335,34 +509,46 @@ class PDFReport(FPDF):
                 
                 # 排序染色体标签
                 try:
-                    chrom_order = sorted(labels, key=lambda x: int(x[3:]) if all(x.startswith('chr') for x in labels) else sorted(labels))
-                    sorted_data = [data[labels.index(c)] for c in chrom_order]
+                    # 处理染色体排序
+                    def chrom_key(x):
+                        if x.startswith('chr'):
+                            num = x[3:]
+                        else:
+                            num = x
+                        try:
+                            return int(num)
+                        except:
+                            return float('inf')
+                    
+                    sorted_indices = sorted(range(len(labels)), key=lambda i: chrom_key(labels[i]))
+                    labels = [labels[i] for i in sorted_indices]
+                    data = [data[i] for i in sorted_indices]
                 except:
-                    chrom_order = labels
-                    sorted_data = data
+                    pass
                 
-                if sorted_data:
+                if data:
                     # 创建条形图
-                    bars = ax.bar(chrom_order, sorted_data, color='#3498db')
-                    ax.set_title('染色体变异分布', fontproperties=font_prop if self.fonts_available['SimHei'] else None, fontsize=14)
+                    bars = ax.bar(labels, data, color='#3498db')
+                    ax.set_title('染色体变异分布', fontsize=14)
                     ax.set_ylabel('变异数量')
+                    ax.tick_params(axis='x', rotation=45)
                     
                     # 在每个条形上添加数值
                     for bar in bars:
                         height = bar.get_height()
                         ax.annotate(f'{height}',
                                     xy=(bar.get_x() + bar.get_width() / 2, height),
-                                    xytext=(0, 3),  # 3 points vertical offset
+                                    xytext=(0, 3),
                                     textcoords="offset points",
-                                    ha='center', va='bottom')
+                                    ha='center', va='bottom', fontsize=8)
                 else:
                     # 如果没有数据，显示占位符
                     ax.text(0.5, 0.5, '无变异分布数据', 
-                            ha='center', va='center', 
-                            fontproperties=font_prop if self.fonts_available['SimHei'] else None)
+                            ha='center', va='center', fontsize=12)
             
             # 保存图表为图像
             buf = io.BytesIO()
+            plt.tight_layout()
             plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
             plt.close(fig)  # 关闭图形释放内存
             
