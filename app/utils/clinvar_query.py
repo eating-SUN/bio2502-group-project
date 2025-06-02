@@ -1,6 +1,6 @@
 import sqlite3
 
-DB_PATH = "data/clinvar/variant_summary.db"
+DB_PATH = "data/clinvar/clinvar.db"
 
 def query_clinvar(variant_id):
     """
@@ -19,12 +19,12 @@ def query_clinvar(variant_id):
             rows = cursor.fetchall()
 
         # 情况2：匹配 rsID
-        elif str(variant_id).startswith('rs'):
-            cursor.execute("SELECT * FROM clinvar WHERE rsid = ?", (variant_id,))
+        elif variant_id.startswith('rs'):
+            cursor.execute("SELECT * FROM clinvar WHERE rsid = ?", (variant_id[2:],))
             rows = cursor.fetchall()
 
         # 情况3：匹配 CHR:POS
-        elif ':' in str(variant_id):
+        elif ':' in variant_id:
             chrom, pos = variant_id.split(':')
             cursor.execute("SELECT * FROM clinvar WHERE Chromosome = ? AND Start = ?", (chrom, pos))
             rows = cursor.fetchall()
@@ -38,17 +38,16 @@ def query_clinvar(variant_id):
             return None
 
         row = rows[0]
-        (GeneID, ClinicalSignificance, rsid, Chromosome, Start, Stop, ReferenceAlleleVCF, AlternateAlleleVCF) = row
+        (chrom, pos, rsid, ref, alt, CLNDN, CLINSIG) = row
 
         return{
-            'Chromosome': Chromosome,
-            'Start': Start,
-            'Stop': Stop,
-            'ID': rsid if rsid else 'NA',
-            'Ref': ReferenceAlleleVCF if ReferenceAlleleVCF else 'NA',
-            'Alt': AlternateAlleleVCF if AlternateAlleleVCF else 'NA',
-            'ClinicalSignificance': ClinicalSignificance if ClinicalSignificance else 'Unknown',
-            'Gene': GeneID if GeneID else 'Unknown',
+            'Chromosome': f'chr{chrom}',                                # chr1
+            'Pos': pos,                                                 # 10176
+            'ID': f'rs{rsid}' if rsid else 'NA',                        # rs3385321
+            'Ref': ref if ref else 'NA',                                # AG
+            'Alt': alt if alt else 'NA',                                # A
+            'ClinvarDiseaseName': CLNDN if CLNDN else 'NA',             # Retinitis_pigmentosa
+            'ClinicalSignificance': CLINSIG if CLINSIG else 'Unknown',  # Likely_benign
         }
         
     except Exception as e:

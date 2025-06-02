@@ -5,7 +5,7 @@ from app.utils.gene_to_protein import run_vep, parse_vep_output, get_uniprot_seq
 import os
 import traceback
 
-def process_vcf(vcf_path, verbose=True):
+def process_vcf(vcf_path, verbose=False):
     vep_output_file = f"{vcf_path}.tsv"
     variants = []
 
@@ -132,11 +132,10 @@ def process_rsid(rsid):
         if not variant:
             raise ValueError(f"ClinVar 查询失败，未找到 rsID: {rsid}")
 
-        clinvar = variant.get("clinvar", {})
-        chrom = clinvar.get("Chromosome")
-        pos = clinvar.get("Start")
-        ref = clinvar.get("Ref")
-        alt = clinvar.get("Alt")
+        chrom = variant.get("Chromosome")
+        pos = variant.get("Pos")
+        ref = variant.get("Ref")
+        alt = variant.get("Alt")
 
 
         if not all([chrom, pos, ref, alt]):
@@ -158,7 +157,6 @@ def process_rsid(rsid):
 
             # 写入变异记录
             tmp_vcf.write(f"{chrom}\t{pos}\t{rsid}\t{ref}\t{alt}\t.\t.\t.\n")
-
 
         # Step 3: 调用 VCF 处理函数
         variants = process_vcf(tmp_vcf_path)

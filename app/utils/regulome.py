@@ -4,10 +4,9 @@ def query_score(position, db_path='./data/regulome/regulome.db', verbose=False):
     try:
         rsid = position.get('rsid')
         chrom = position.get('chrom')
-        start = position.get('start')
-        end = position.get('end')
+        pos = position.get('pos')
 
-        key = rsid if rsid else f"{chrom}:{start}-{end}"
+        key = rsid if rsid else f"{chrom}:{pos}"
         if verbose:
             print(f"[INFO][query_score] 查询位点 {key} 的 RegulomeDB 注释...")
 
@@ -17,10 +16,10 @@ def query_score(position, db_path='./data/regulome/regulome.db', verbose=False):
 
         if rsid:
             cursor.execute("SELECT chrom, start, end, rsid, ranking, score FROM regulome WHERE rsid = ?", (rsid,))
-        elif None not in (chrom, start, end):
+        elif None not in (chrom, pos):
             cursor.execute(
-                "SELECT chrom, start, end, rsid, ranking, score FROM regulome WHERE chrom = ? AND start = ? AND end = ?",
-                (chrom, start, end)
+                "SELECT chrom, start, end, rsid, ranking, score FROM regulome WHERE chrom = ? AND start <= ? AND end >= ?",
+                (chrom, pos)
             )
         else:
             if verbose:
@@ -37,8 +36,7 @@ def query_score(position, db_path='./data/regulome/regulome.db', verbose=False):
 
         score_info = {
             'chrom': row[0],
-            'start': row[1],
-            'end': row[2],
+            'pos': row[1],
             'rsid': row[3],
             'ranking': row[4],
             'probability_score': row[5]

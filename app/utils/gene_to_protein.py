@@ -55,7 +55,7 @@ def run_vep(input_vcf, output_file):
         raise RuntimeError(error_msg)
 
 
-def parse_vep_output(vep_file, verbose=True):
+def parse_vep_output(vep_file, verbose=False):
     variants = []
     headers = None
     idx_map = {}
@@ -271,7 +271,7 @@ def parse_hgvs_protein(hgvs_p):
     return None, None, None, None
 
 
-def mutate_sequence(seq, pos, alt_aa):
+def mutate_sequence(seq, pos, alt_aa, verbose=False):
     """
     返回突变后的序列。
     参数 pos 为 1-based 索引。
@@ -286,33 +286,40 @@ def mutate_sequence(seq, pos, alt_aa):
     }
 
     if not seq or alt_aa is None or pos < 1 or pos > len(seq):
-        print(f"[ERROR] 突变位置无效或序列为空: pos={pos}, alt_aa={alt_aa}")
+        if verbose:
+            print(f"[ERROR] 突变位置无效或序列为空: pos={pos}, alt_aa={alt_aa}")
         return None
     
     if alt_aa in ['=', None]:
-        print(f"[DEBUG] 同义突变，无需修改序列: pos={pos}, alt_aa={alt_aa}")
+        if verbose:
+            print(f"[DEBUG] 同义突变，无需修改序列: pos={pos}, alt_aa={alt_aa}")
         return seq
     
     if alt_aa == 'fs':
-        print(f"[DEBUG] 移码突变，从位置 {pos} 开始截断")
+        if verbose:
+            print(f"[DEBUG] 移码突变，从位置 {pos} 开始截断")
         return seq[:pos] + "*"
     
     if alt_aa == 'del':
-        print(f"[DEBUG] 缺失突变，删除位置 {pos} 氨基酸")
+        if verbose:
+            print(f"[DEBUG] 缺失突变，删除位置 {pos} 氨基酸")
         return seq[:pos - 1] + seq[pos:]
     
     if alt_aa.startswith("ins"):
         insertion = ''.join([aa3to1.get(alt_aa[i:i+3], '') for i in range(3, len(alt_aa), 3)])
-        print(f"[DEBUG] 插入突变，在位置 {pos} 后插入: {insertion}")
+        if verbose:
+            print(f"[DEBUG] 插入突变，在位置 {pos} 后插入: {insertion}")
         return seq[:pos] + insertion + seq[pos:]
 
     if alt_aa.startswith("delins"):
-        print(f"[DEBUG] 删除插入突变，位置 {pos} 替换为 {alt_aa}")
+        if verbose:
+            print(f"[DEBUG] 删除插入突变，位置 {pos} 替换为 {alt_aa}")
         replacement = ''.join([aa3to1.get(alt_aa[i:i+3], '') for i in range(7, len(alt_aa), 3)])
         return seq[:pos - 1] + replacement + seq[pos:]
 
     if alt_aa == '*':  
-        print(f"[DEBUG] 终止突变，从位置 {pos} 截断序列")
+        if verbose:
+            print(f"[DEBUG] 终止突变，从位置 {pos} 截断序列")
         return seq[:pos - 1] + "*"
     
     if len(alt_aa) == 1:
@@ -320,5 +327,6 @@ def mutate_sequence(seq, pos, alt_aa):
         seq_list[pos - 1] = alt_aa
         return ''.join(seq_list)
 
-    print(f"[WARN] 未知的变异类型: pos={pos}, alt_aa={alt_aa}")
+    if verbose:
+        print(f"[WARN] 未知的变异类型: pos={pos}, alt_aa={alt_aa}")
     return None

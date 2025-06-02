@@ -40,13 +40,12 @@ def process_variants(task_id, variants, tasks, file_path=None):
                 if clinvar:
                     rsid = clinvar.get('ID')
                     chrom = clinvar.get('Chromosome')
-                    start = clinvar.get('Start')
-                    end = clinvar.get('Stop')
+                    pos = clinvar.get('Pos')
                     pos_info = {}
                     if rsid and rsid != 'NA':
                         pos_info['rsid'] = rsid
-                    if chrom and start and end:
-                        pos_info.update({'chrom': chrom, 'start': start, 'end': end})
+                    if chrom and pos:
+                        pos_info.update({'chrom': chrom, 'pos': pos})
                     
                     if pos_info:
                         score = regulome.query_score(pos_info)
