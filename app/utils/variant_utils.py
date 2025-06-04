@@ -1,4 +1,5 @@
 from app.utils import clinvar_query, bio_features, regulome, prs
+from app.utils.predict import predict_variant, predict_variants, load_model
 import traceback
 import os
 
@@ -27,7 +28,7 @@ def process_variants(task_id, variants, tasks, file_path=None):
                 fail_count += 1
 
         print(f"[INFO][{task_id}] ClinVar 注释完成，成功注释: {success_count} 条，未注释: {fail_count} 条")
-        tasks[task_id]['progress'] = 30
+        tasks[task_id]['progress'] = 20
 
         # step2 : 计算RegulomeDB分数
         print(f"[INFO][{task_id}] 开始 RegulomeDB 注释")
@@ -63,7 +64,7 @@ def process_variants(task_id, variants, tasks, file_path=None):
                 unmatched_count += 1
 
         print(f"[INFO][{task_id}] RegulomeDB 注释完成，匹配成功: {matched_count}，未匹配: {unmatched_count}")
-        tasks[task_id]['progress'] = 40
+        tasks[task_id]['progress'] = 30
 
         # step3: 计算蛋白质特征
         print(f"[INFO][{task_id}] 开始蛋白质理化性质计算")
@@ -101,7 +102,7 @@ def process_variants(task_id, variants, tasks, file_path=None):
                 print(f"[WARNING][{task_id}] 第 {idx+1} 个蛋白质特征计算失败: {e}")
                 traceback.print_exc()
 
-        tasks[task_id]['progress'] = 60
+        tasks[task_id]['progress'] = 50
 
         # step4: 计算 PRS 风险评分
         prs_score = None
@@ -110,15 +111,28 @@ def process_variants(task_id, variants, tasks, file_path=None):
         try:
             prs_score, matched = prs.compute_prs(variants)
             prs_risk = prs.classify_risk(prs_score)
-            for v in variants:
-                v['prs_score'] = prs_score
-                v['prs_risk'] = prs_risk
+            tasks[task_id]['prs_score'] = prs_score
+            tasks[task_id]['prs_risk'] = prs_risk
             print(f"[INFO][{task_id}] PRS 计算完成，得分: {prs_score}，风险等级: {prs_risk}")
         except Exception as e:
             print(f"[WARNING][{task_id}] PRS 计算失败: {e}")
-            for v in variants:
-                v['prs_score'] = None
-                v['prs_risk'] = None
+            tasks[task_id]['prs_score'] = None
+            tasks[task_id]['prs_risk'] = None
+        tasks[task_id]['progress'] = 60
+
+        # step5: 模型预测
+        try:
+            model, gene_encoder = load_model()
+            print(f"[INFO][{task_id}] 开始模型预测")
+            score = predict_variants(model, gene_encoder, variants)
+            print(f"[INFO][{task_id}] 变异综合得分: {score:.4f}")
+            tasks[task_id]['score'] = score       
+            print(f"[INFO][{task_id}] 模型预测完成")
+
+        except Exception as e:
+            print(f"[ERROR][{task_id}] 模型预测失败: {e}")
+            tasks[task_id]['score'] = None
+        
         tasks[task_id]['progress'] = 80
 
         # 保存结果

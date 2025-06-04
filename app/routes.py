@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, render_template,send_file
-from app.utils import process_upload, clinvar_query
+from app.utils import process_upload
 import app.pdf_report as pdf_report
 import uuid
 import threading

@@ -49,12 +49,12 @@ def main():
     optimizer = torch.optim.Adam(model.parameters(), lr)
     loss_fn = nn.MSELoss()
 
-    # 学习率调度器，StepLR每5轮lr减小为原来的0.9倍
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.9)
+    # 学习率调度器，StepLR每5轮lr减小为原来的0.85倍
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.85)
 
     for epoch in range(num_epochs):
         print(f"Epoch {epoch+1}/{num_epochs}")
-        train(model, dataloaders, optimizer, loss_fn, device, 1)  # 训练1个epoch
+        train(model, dataloaders, optimizer, loss_fn, device, num_epochs=5, gene_encoder=gene_encoder, clnsig_encoder=clnsig_encoder)  
         scheduler.step() 
 
 if __name__ == "__main__":

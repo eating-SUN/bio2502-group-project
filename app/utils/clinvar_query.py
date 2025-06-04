@@ -47,9 +47,6 @@ def query_clinvar(variant_id):
             'Ref': ref,
             'Alt': alt,
             'Gene': gene,
-            'Consequence': consequence,
-            'AF_ExAC': af_exac,
-            'AF_TGP': af_tgp,
             'ClinvarDiseaseName': clndn if clndn else 'NA',
             'ClinicalSignificance': clnsig if clnsig else 'Unknown'
         }

@@ -1,7 +1,8 @@
 import torch
 import time
+import joblib
 
-def train(model, dataloaders, optimizer, loss_fn, device, num_epochs=10):
+def train(model, dataloaders, optimizer, loss_fn, device, num_epochs=10, gene_encoder=None, clnsig_encoder=None):
     """
     model: PyTorch模型
     dataloaders: dict，包含 'train' 和 'val' 的 DataLoader
@@ -73,3 +74,8 @@ def train(model, dataloaders, optimizer, loss_fn, device, num_epochs=10):
         print()
     
     print("Training complete. Best val loss: {:.4f}".format(best_val_loss))
+
+    # 训练结束后保存编码器（如果有）
+    if gene_encoder is not None:
+        joblib.dump(gene_encoder, "predict/model/gene_encoder.pkl")
+        print("Gene encoder saved as gene_encoder.pkl")
