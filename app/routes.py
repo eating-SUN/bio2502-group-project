@@ -217,7 +217,7 @@ def generate_report():
         
         # 添加详细变异表格
         if variants:
-            headers = ["变异ID", "染色体", "位置", "参考序列", "变异序列", "临床意义", "基因", "RegulomeDB分数"]
+            headers = ["变异ID", "染色体", "位置", "参考序列", "变异序列", "临床意义", "疾病名称", "RegulomeDB分数"]
             rows = []
             for v in variants[:15]:  # 只显示前15个
                 var_info = v.get('variant_info', {})
@@ -238,7 +238,7 @@ def generate_report():
                     var_info.get('ref', ''),
                     var_info.get('alt', ''),
                     clinvar_data.get('ClinicalSignificance', '未知'),
-                    clinvar_data.get('Gene', '-'),
+                    clinvar_data.get('ClinvarDiseaseName', '-'),
                     regulome_text
                 ])
             pdf.add_table("变异列表 (前15个)", headers, rows)
