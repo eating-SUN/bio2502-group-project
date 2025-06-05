@@ -81,5 +81,3 @@ def compute_alt_dosage(ref, alt, genotype):
         return 0
     alleles = genotype.replace('|', '/').split('/')
     return alleles.count(alt)
-
-   
