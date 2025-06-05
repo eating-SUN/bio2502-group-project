@@ -1,42 +1,54 @@
 <template>
   <div class="chart-container">
-    <h5 class="text-center mb-3">临床意义分布</h5>
+    <h5 class="text-center mb-3">模型预测结果分布</h5>
     <canvas ref="chartCanvas"></canvas>
   </div>
 </template>
 
 <script>
-import { ref, onMounted, watch } from 'vue'
-import Chart from 'chart.js/auto'
+import { Chart, registerables } from 'chart.js';
+Chart.register(...registerables);
 
 export default {
   props: {
+    chartData: Object
+  },
+  mounted() {
+    this.renderChart();
+  },
+  watch: {
     chartData: {
-      type: Object,
-      required: true
+      deep: true,
+      handler() {
+        this.renderChart();
+      }
     }
   },
-  setup(props) {
-    const chartCanvas = ref(null)
-    let chartInstance = null
-    
-    const renderChart = () => {
-      if (chartInstance) {
-        chartInstance.destroy()
+  methods: {
+    renderChart() {
+      if (this.chartInstance) {
+        this.chartInstance.destroy();
       }
       
-      if (!chartCanvas.value || !props.chartData) return
+      if (!this.chartData || !this.chartData.labels) return;
       
-      const ctx = chartCanvas.value.getContext('2d')
-      chartInstance = new Chart(ctx, {
+      const ctx = this.$refs.chartCanvas.getContext('2d');
+      this.chartInstance = new Chart(ctx, {
         type: 'pie',
-        data: props.chartData,
+        data: {
+          labels: this.chartData.labels,
+          datasets: [{
+            data: this.chartData.data,
+            backgroundColor: this.chartData.backgroundColor,
+            borderWidth: 1
+          }]
+        },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
             legend: {
-              position: 'right',
+              position: 'bottom',
               labels: {
                 padding: 15,
                 font: {
@@ -57,17 +69,15 @@ export default {
             }
           }
         }
-      })
+      });
     }
-    
-    onMounted(renderChart)
-    watch(() => props.chartData, renderChart, { deep: true })
-    
-    return {
-      chartCanvas
+  },
+  beforeUnmount() {
+    if (this.chartInstance) {
+      this.chartInstance.destroy();
     }
   }
-}
+};
 </script>
 
 <style scoped>
