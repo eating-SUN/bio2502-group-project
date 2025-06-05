@@ -143,10 +143,9 @@ def get_results_api():
     # 返回结构化结果
     return jsonify({
         'task_status': 'completed',
-        'prsScore': task.get('result', {}).get('summary',{}).get('prs_score',0.0),
-        'prsRisk': task.get('result', {}).get('summary',{}).get('prs_risk', '未知'),
-        'modelScore': task.get('result', {}).get('summary',{}).get('model_score', 0.0),
-        'modelRisk': task.get('result', {}).get('summary',{}).get('model_risk', '未知'),
+        'prsScore': task.get('prs_score',0.0),
+        'prsRisk': task.get('prs_risk', '未知'),
+        'modelScore': task.get('score', 0.0),
         'variants': task.get('result', {}).get('variants', [])
     })
 
@@ -210,6 +209,7 @@ def generate_report():
             regulome_score = v.get('regulome_score', {})
             if isinstance(regulome_score, dict) and 'ranking' in regulome_score:
                 regulome_scores.append(regulome_score['ranking'][0])
+            
         
         # 计算RegulomeDB分数分布
         regulome_distribution = {}
@@ -227,12 +227,24 @@ def generate_report():
         
         # 添加详细变异表格
         if variants:
-            headers = ["变异ID", "染色体", "位置", "参考序列", "变异序列", "临床意义", "疾病名称", "RegulomeDB分数"]
+            headers = ["变异ID", "参考序列", "变异序列", "临床意义","基因", "模型预测标签", "模型预测得分", "RegulomeDB分数"]
             rows = []
             for v in variants[:15]:  # 只显示前15个
                 var_info = v.get('variant_info', {})
                 clinvar_data = v.get('clinvar_data', {})
                 regulome_score = v.get('regulome_score', {})
+                predict_result = v.get('predict_result', {})
+                predict_label = predict_result.get('clnsig_pred', '未知')
+                predict_score = predict_result.get('predict_score', 0.0)
+
+                label_translation = {
+                    'Benign': '良性',
+                    'Likely_benign': '可能良性',
+                    'Uncertain_significance': '意义未明',
+                    'Likely_pathogenic': '可能致病',
+                    'Pathogenic': '致病'
+                }
+                translated_label = label_translation.get(predict_label, '未知')
                 
                 # 格式化RegulomeDB分数
                 if isinstance(regulome_score, dict) and 'ranking' in regulome_score:
@@ -243,12 +255,12 @@ def generate_report():
                 # 安全地获取各字段值
                 rows.append([
                     var_info.get('id', ''),
-                    var_info.get('chrom', ''),
-                    str(var_info.get('pos', '')),
                     var_info.get('ref', ''),
                     var_info.get('alt', ''),
                     clinvar_data.get('ClinicalSignificance', '未知'),
-                    clinvar_data.get('ClinvarDiseaseName', '-'),
+                    clinvar_data.get('Gene', '-'),  # 添加基因列
+                    translated_label,  # 模型预测标签   
+                    f"{predict_score:.4f}" if predict_score else 'N/A',  # 模型预测得分
                     regulome_text
                 ])
             pdf.add_table("变异列表 (前15个)", headers, rows)
