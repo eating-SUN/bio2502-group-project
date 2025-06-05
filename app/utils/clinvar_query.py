@@ -43,7 +43,7 @@ def query_clinvar(variant_id):
         return {
             'Chromosome': f'chr{chrom}' if chrom.isdigit() else chrom,
             'Pos': pos,
-            'ID': f'rs{rsid}' if rsid else 'NA',
+            'ID': f'rs{rsid}' if rsid.isdigit() else ('NA' if not rsid else rsid),
             'Ref': ref,
             'Alt': alt,
             'Gene': gene,

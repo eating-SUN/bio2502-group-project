@@ -28,9 +28,16 @@ def extract_region(chrom_id, pos, window=MAX_SEQ_LENGTH):
     """提取基因组区域"""
     try:
         chrom = str(chrom_id)
+        # 自动适配 FASTA 命名
         if chrom not in fasta:
-            print(f"[WARN] Chromosome {chrom} not found in FASTA.")
-            return "N" * window
+            # 尝试去掉 chr 前缀再匹配
+            if chrom.startswith("chr") and chrom[3:] in fasta:
+                chrom = chrom[3:]
+            elif f"chr{chrom}" in fasta:
+                chrom = f"chr{chrom}"
+            else:
+                print(f"[WARN] Chromosome {chrom_id} not found in FASTA.")
+                return "N" * window
 
         pos = int(round(pos))  # 确保pos是整数
         start = max(1, pos - window // 2)
