@@ -30,11 +30,6 @@
 
           <!-- 完成状态 -->
           <template v-else-if="taskStatus === 'completed'">
-            <!-- 排序提示 -->
-            <div class="alert alert-info mb-3" v-if="mergedData.length > 0">
-              提示：点击<span class="fw-bold">变异ID</span>、<span class="fw-bold">染色体</span>、
-              <span class="fw-bold">临床意义</span>或<span class="fw-bold">RegulomeDB分数</span>表头可进行排序
-            </div>
             
             <!-- PRS评分 -->
             <div class="mb-4">
@@ -47,7 +42,7 @@
             <!-- 神经网络风险预测 -->
             <div class="mb-4">
               <h4>神经网络预测乳腺癌风险: 
-                <span class="text-primary" data-bs-toggle="tooltip" title="基于深度学习模型对多个变异进行加权评分，预测乳腺癌风险">{{ modelScore }}%</span>
+                <span class="text-primary" data-bs-toggle="tooltip" title="基于机器学习模型对多个变异进行加权评分，预测乳腺癌风险">{{ modelScore }}</span>
                 <span class="badge" :class="modelRiskBadgeClass">{{ modelRisk }}</span>
               </h4>
               <p class="text-muted">基于 {{ mergedData.length }} 个变异计算</p>

@@ -17,7 +17,7 @@
       </div>
       <div class="mt-auto text-center">
         <p class="mb-0">预测结果: <strong :class="riskClass">{{ riskLabel }}</strong></p>
-        <p class="text-muted small mt-2">基于深度学习模型对多个变异进行加权评分</p>
+        <p class="text-muted small mt-2">基于深度学习模型对多个变异进行PRS风格加权评分</p>
       </div>
     </div>
   </div>

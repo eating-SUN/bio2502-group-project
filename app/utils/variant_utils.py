@@ -148,10 +148,6 @@ def process_variants(task_id, variants, tasks, file_path=None):
                     'protein_info': [v.get('protein_info') for v in subset],
                     'protein_features': [v.get('protein_features') for v in subset],
                     'regulome_scores': [v.get('regulome_score') for v in subset],
-                    'prs_score': prs_score,
-                    'prs_risk': prs_risk,
-                    'model_score': score,
-                    'model_risk': model_risk,
                     'clinvar_data': [v.get('clinvar_data') for v in subset]
                 }
             }
