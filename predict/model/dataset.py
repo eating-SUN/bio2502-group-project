@@ -29,7 +29,8 @@ def extract_region(chrom_id, pos, window=MAX_SEQ_LENGTH):
     try:
         chrom = str(chrom_id)
         # 自动适配 FASTA 命名
-        if chrom not in fasta: 
+        if chrom not in fasta:
+            # 尝试去掉 chr 前缀再匹配
             if chrom.startswith("chr") and chrom[3:] in fasta:
                 chrom = chrom[3:]
             elif f"chr{chrom}" in fasta:

@@ -2,17 +2,13 @@
 
 set -e  # Exit on any error
 
+pip install gdown
+
 echo "Creating data directories..."
 mkdir -p data/clinvar data/prs data/regulome
-
-echo "Downloading ClinVar data..."
-wget -O data/clinvar/variant_summary.db "https://drive.google.com/uc?export=download&id=12FP1iDKnnPTwzVGui_AVLN_mvG4DHDhX"
-
-echo "Downloading PRS data..."
-wget -O data/prs/prs_brca.db "https://drive.google.com/uc?export=download&id=1CSKb8HSuLYyZ9CzJ2lLvFih16AkXNz4-"
-
-echo "Downloading RegulomeDB data..."
-wget -O data/regulome/regulome_data.csv "https://drive.google.com/uc?export=download&id=10AZqrmK075atRYVSPliIb6LLuHQY7NgZ"
+gdown https://drive.google.com/uc?id=1Ee-76vU3IrT8QDBHjNgWvKeLDonuP2LO -O data/clinvar/clinvar.db
+gdown https://drive.google.com/uc?id=1CSKb8HSuLYyZ9CzJ2lLvFih16AkXNz4- -O data/prs/prs_brca.db
+gdown https://drive.google.com/uc?id=1eQShzYlODp34iaczvL5WFBmrJ3169iOW -O data/regulome/regulome.db
 
 echo "All files downloaded successfully."
 

@@ -128,6 +128,7 @@ def process_variants(task_id, variants, tasks, file_path=None):
 
             total_score = 0.0
             total_dosage = 0.0
+            score_list = []
 
             with torch.no_grad():
                 for v in variants:
@@ -140,11 +141,13 @@ def process_variants(task_id, variants, tasks, file_path=None):
                     genotype = info.get("genotype", "NA")
 
                     if ',' in alt:
-                        continue
+                        alt = alt.split(',')[0]
 
-                    dosage = compute_alt_dosage(ref, alt, genotype)
-                    if dosage == 0:
-                        continue
+                    dosage = None
+                    try:
+                        dosage = compute_alt_dosage(ref, alt, genotype)
+                    except Exception:
+                        pass
 
                     score, clnsig_pred = predict_variant(model, gene_encoder, info)
 
@@ -154,12 +157,20 @@ def process_variants(task_id, variants, tasks, file_path=None):
                         'clnsig_pred': clnsig_pred,
                         }
 
-                    total_score += score * dosage
-                    total_dosage += dosage
+                    score_list.append(score)
 
-            final_score = total_score / total_dosage if total_dosage > 0 else 0.0
+                    if dosage is not None and isinstance(dosage, (int, float)) and dosage > 0:
+                        total_score += score * dosage
+                        total_dosage += dosage
+
+            if total_dosage > 0:
+                final_score = total_score / total_dosage
+            elif score_list:
+                final_score = sum(score_list) / len(score_list)  # 或者用 final_score = score_list[-1]
+            else:
+                final_score = 0.0
+
             tasks[task_id]['score'] = final_score
-
             print(f"[INFO][{task_id}] 模型预测完成，总评分: {final_score:.4f}")
 
         except Exception as e:
