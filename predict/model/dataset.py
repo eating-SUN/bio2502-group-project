@@ -4,7 +4,6 @@ import sqlite3
 import pyfaidx
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
-from tqdm import tqdm
 from torch.utils.data import Dataset
 
 
@@ -80,8 +79,21 @@ def preprocess_data(df):
     
     # 编码 clnsig（临床意义）标签
     print("Encoding clinical significance labels...")
+    # 预定义所有可能的标签（包括你后续预测可能用到的）
+    predefined_labels = [
+        'Benign',
+        'Likely_benign',
+        'Uncertain_significance',
+        'Likely_pathogenic',
+        'Pathogenic'
+    ]
+
+    # 确保所有预定义标签在编码器中，即使训练集中某些标签缺失
+    all_labels = pd.Series(predefined_labels + df['clnsig'].dropna().astype(str).tolist())
+
     clnsig_encoder = LabelEncoder()
-    df['clnsig_label'] = clnsig_encoder.fit_transform(df['clnsig'].astype(str))
+    clnsig_encoder.fit(all_labels)
+    df['clnsig_label'] = clnsig_encoder.transform(df['clnsig'].astype(str))
 
     # 编码 gene
     print("Encoding gene labels...")

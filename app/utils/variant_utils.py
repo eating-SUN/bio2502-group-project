@@ -1,6 +1,7 @@
 from app.utils import clinvar_query, bio_features, regulome, prs
-from app.utils.predict import predict_variant, predict_variants, load_model
+from app.utils.predict import predict_variant, compute_alt_dosage, load_model
 import traceback
+import torch
 import os
 
 def process_variants(task_id, variants, tasks, file_path=None):
@@ -124,16 +125,48 @@ def process_variants(task_id, variants, tasks, file_path=None):
         try:
             model, gene_encoder = load_model()
             print(f"[INFO][{task_id}] 开始模型预测")
-            score = predict_variants(model, gene_encoder, variants)
-            print(f"[INFO][{task_id}] 变异综合得分: {score:.4f}")
-            tasks[task_id]['score'] = score       
-            print(f"[INFO][{task_id}] 模型预测完成")
+
+            total_score = 0.0
+            total_dosage = 0.0
+
+            with torch.no_grad():
+                for v in variants:
+                    info = v.get("variant_info")
+                    if not info:
+                        continue
+
+                    ref = info.get("ref")
+                    alt = info.get("alt")
+                    genotype = info.get("genotype", "NA")
+
+                    if ',' in alt:
+                        continue
+
+                    dosage = compute_alt_dosage(ref, alt, genotype)
+                    if dosage == 0:
+                        continue
+
+                    score, clnsig_pred = predict_variant(model, gene_encoder, info)
+
+                    # 记录模型预测结果到当前 v 中
+                    v['predict_result'] = {
+                        'predict_score': score,
+                        'clnsig_pred': clnsig_pred,
+                        }
+
+                    total_score += score * dosage
+                    total_dosage += dosage
+
+            final_score = total_score / total_dosage if total_dosage > 0 else 0.0
+            tasks[task_id]['score'] = final_score
+
+            print(f"[INFO][{task_id}] 模型预测完成，总评分: {final_score:.4f}")
 
         except Exception as e:
-            print(f"[ERROR][{task_id}] 模型预测失败: {e}")
-            tasks[task_id]['score'] = None
+            print(f"[ERROR][{task_id}] 处理变异失败: {e}")
+            tasks[task_id]['error'] = str(e)
         
-        tasks[task_id]['progress'] = 80
+            tasks[task_id]['progress'] = 80
 
         # 保存结果
         try:
@@ -147,7 +180,8 @@ def process_variants(task_id, variants, tasks, file_path=None):
                     'protein_info': [v.get('protein_info') for v in subset],
                     'protein_features': [v.get('protein_features') for v in subset],
                     'regulome_scores': [v.get('regulome_score') for v in subset],
-                    'clinvar_data': [v.get('clinvar_data') for v in subset]
+                    'clinvar_data': [v.get('clinvar_data') for v in subset],
+                    'predict_result': [v.get('predict_result') for v in subset]
                 }
             }
             tasks[task_id]['status'] = 'completed'

@@ -10,8 +10,10 @@ class VariantClassifier(nn.Module):
         self.seq_embedding = nn.Embedding(num_embeddings=vocab_size, embedding_dim=embed_dim, padding_idx=0)
         
         self.conv1 = nn.Conv1d(in_channels=embed_dim, out_channels=32, kernel_size=7, padding=3)
+        self.bn1 = nn.BatchNorm1d(32)  # 添加 Batch Normalization 层
         self.pool = nn.MaxPool1d(kernel_size=4)
         self.conv2 = nn.Conv1d(32, 64, kernel_size=5, padding=2)
+        self.bn2 = nn.BatchNorm1d(64)  # 添加 Batch Normalization 层
 
         self.use_gene = gene_num_classes is not None
         if self.use_gene:
@@ -24,23 +26,25 @@ class VariantClassifier(nn.Module):
             fc_input_dim += gene_embed_dim
 
         self.fc1 = nn.Linear(fc_input_dim, 128)
-        self.dropout = nn.Dropout(p=0.5)  # 加dropout
+        self.bn3 = nn.BatchNorm1d(128)  # 添加 Batch Normalization 层
+        self.dropout1 = nn.Dropout(p=0.5)  # 增加 Dropout 层
         self.fc2 = nn.Linear(128, 1)
+        self.dropout2 = nn.Dropout(p=0.5)  # 增加 Dropout 层
 
     def _get_conv_output(self, seq_len):
         x = torch.zeros(1, seq_len).long()
         x = self.seq_embedding(x).permute(0, 2, 1)
-        x = F.relu(self.conv1(x))
+        x = F.relu(self.bn1(self.conv1(x)))  # 应用 Batch Normalization
         x = self.pool(x)
-        x = F.relu(self.conv2(x))
+        x = F.relu(self.bn2(self.conv2(x)))  # 应用 Batch Normalization
         x = self.pool(x)
         return x.view(1, -1).size(1)
 
     def forward(self, seq, gene=None):
         x = self.seq_embedding(seq).permute(0, 2, 1)
-        x = F.relu(self.conv1(x))
+        x = F.relu(self.bn1(self.conv1(x)))  # 应用 Batch Normalization
         x = self.pool(x)
-        x = F.relu(self.conv2(x))
+        x = F.relu(self.bn2(self.conv2(x)))  # 应用 Batch Normalization
         x = self.pool(x)
         x = x.view(x.size(0), -1)
 
@@ -48,7 +52,9 @@ class VariantClassifier(nn.Module):
             gene_embed = self.gene_embedding(gene)
             x = torch.cat([x, gene_embed], dim=1)
 
-        x = F.relu(self.fc1(x))
-        x = self.dropout(x)  # dropout只在训练时生效
-        out = self.fc2(x)
-        return out.squeeze(1)
+        x = F.relu(self.bn3(self.fc1(x)))  # 应用 Batch Normalization
+        x = self.dropout1(x)  # Dropout 只在训练时生效
+        x = F.relu(self.fc2(x))
+        x = self.dropout2(x)  # 增加 Dropout 层
+        return x.squeeze(1)
+

@@ -16,7 +16,7 @@ TRAIN_CONFIG = {
 batch_size = TRAIN_CONFIG['batch_size']
 lr = TRAIN_CONFIG['learning_rate']
 num_epochs = TRAIN_CONFIG['num_epochs']
-device = TRAIN_CONFIG['device']
+device = TRAIN_CONFIG['device']  
 
 def main():
     # 1. 加载数据
@@ -26,7 +26,19 @@ def main():
     df, clnsig_encoder, gene_encoder = preprocess_data(df)
 
     # 3. 分割训练和验证集
-    df_train, df_val = train_test_split(df, test_size=0.2, random_state=42)
+    df_train, df_val = train_test_split(
+    df,
+    test_size=0.2,
+    random_state=42,
+    stratify=df["clnsig"]  # 假设类别列名为 "clnsig"
+)
+
+    # 检查类别分布
+    print("训练集类别分布:")
+    print(df_train["clnsig"].value_counts(normalize=True))
+
+    print("\n验证集类别分布:")
+    print(df_val["clnsig"].value_counts(normalize=True))
 
     # 4. 创建数据集对象
     train_dataset = VariantDataset(df_train, use_gene_encoding=True)
@@ -46,16 +58,31 @@ def main():
     model.to(device)
 
     # 7. 定义优化器和损失函数
-    optimizer = torch.optim.Adam(model.parameters(), lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr, weight_decay=1e-3)
     loss_fn = nn.MSELoss()
 
-    # 学习率调度器，StepLR每5轮lr减小为原来的0.85倍
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.85)
+    # 学习率调度器
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5, factor=0.7)
+
+    # best_val_loss = float('inf')
+    # patience = 10  # 当验证损失在10个epoch后不再改善，停止训练
+    # trigger_times = 0
 
     for epoch in range(num_epochs):
         print(f"Epoch {epoch+1}/{num_epochs}")
-        train(model, dataloaders, optimizer, loss_fn, device, num_epochs=5, gene_encoder=gene_encoder, clnsig_encoder=clnsig_encoder)  
-        scheduler.step() 
+        val_loss = train(model, dataloaders, optimizer, loss_fn, device, num_epochs=1, gene_encoder=gene_encoder, clnsig_encoder=clnsig_encoder)  
+        scheduler.step(val_loss)  # 使用验证损失来调整学习率
+
+        # if val_loss < best_val_loss:
+        #     best_val_loss = val_loss
+        #     trigger_times = 0
+        # else:
+        #     trigger_times += 1
+
+        # if trigger_times >= patience:
+        #     print('Early stopping!')
+        #     break
 
 if __name__ == "__main__":
     main()
+

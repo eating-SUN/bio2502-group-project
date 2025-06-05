@@ -111,7 +111,8 @@ def parse_vep_output(vep_file, verbose=False):
                 protein_id = extra_dict.get("SWISSPROT") or extra_dict.get("UniProtKB_ID")
                 hgvs_p = extra_dict.get("HGVSp")
                 if not protein_id:
-                    print(f"[WARNING] 变异 {variant_id} 缺少 protein_id，标记为无法处理")
+                    if verbose:
+                        print(f"[WARNING] 变异 {variant_id} 缺少 protein_id，标记为无法处理")
                     variants.append({
                         "id": variant_id,
                         "protein_id": None,
