@@ -124,15 +124,16 @@ def process_variants(task_id, variants, tasks, file_path=None):
         try:
             model, gene_encoder = load_model()
             print(f"[INFO][{task_id}] 开始模型预测")
-            score = predict_variants(model, gene_encoder, variants)
+            score,model_risk = predict_variants(model, gene_encoder, variants)
             print(f"[INFO][{task_id}] 变异综合得分: {score:.4f}")
-            tasks[task_id]['score'] = score       
+            tasks[task_id]['model_score'] = score
+            tasks[task_id]['model_risk'] = model_risk     
             print(f"[INFO][{task_id}] 模型预测完成")
 
         except Exception as e:
             print(f"[ERROR][{task_id}] 模型预测失败: {e}")
-            tasks[task_id]['score'] = None
-        
+            tasks[task_id]['model_score'] = None
+            tasks[task_id]['model_risk'] = None
         tasks[task_id]['progress'] = 80
 
         # 保存结果
@@ -149,6 +150,8 @@ def process_variants(task_id, variants, tasks, file_path=None):
                     'regulome_scores': [v.get('regulome_score') for v in subset],
                     'prs_score': prs_score,
                     'prs_risk': prs_risk,
+                    'model_score': score,
+                    'model_risk': model_risk,
                     'clinvar_data': [v.get('clinvar_data') for v in subset]
                 }
             }

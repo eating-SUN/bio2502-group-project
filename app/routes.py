@@ -145,6 +145,8 @@ def get_results_api():
         'task_status': 'completed',
         'prsScore': task.get('result', {}).get('summary',{}).get('prs_score',0.0),
         'prsRisk': task.get('result', {}).get('summary',{}).get('prs_risk', '未知'),
+        'modelScore': task.get('result', {}).get('summary',{}).get('model_score', 0.0),
+        'modelRisk': task.get('result', {}).get('summary',{}).get('model_risk', '未知'),
         'variants': task.get('result', {}).get('variants', [])
     })
 
@@ -178,6 +180,14 @@ def generate_report():
             f"评分: {result.get('summary',{}).get('prs_score', 'N/A')}",
             f"风险等级: {result.get('summary',{}).get('prs_risk', '未评估')}",
             f"基于 {len(result.get('variants', []))} 个变异计算"
+        ])
+        
+        # 添加神经网络预测信息
+        model_score = result.get('summary',{}).get('model_score', 0.0)
+        model_risk = result.get('summary',{}).get('model_risk', '未评估')
+        pdf.add_section("神经网络预测风险评分", [
+        f"评分: {model_score * 100:.2f}%",
+        f"风险等级: {model_risk}"
         ])
         
         # 添加变异摘要

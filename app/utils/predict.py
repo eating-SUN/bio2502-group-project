@@ -96,10 +96,24 @@ def predict_variants(model, gene_encoder, variants):
                 print(f"[WARN] 变异 {var.get('id', 'NA')} 预测失败: {e}")
                 continue
 
+    # 计算风险等级
     if total_dosage > 0:
-        return total_score / total_dosage
+        score = total_score / total_dosage
+        
+        # 根据最终得分确定风险等级
+        if score < 0.5:
+            risk_level = "低风险"
+        elif score < 1.0:
+            risk_level = "中等风险"
+        elif score < 1.5:
+            risk_level = "高风险"
+        else:
+            risk_level = "极高风险"
+            
+        return score, risk_level
     else:
-        return 0.0
+        return 0.0, "未评估"
+
 
 
 

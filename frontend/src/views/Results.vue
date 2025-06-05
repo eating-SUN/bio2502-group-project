@@ -44,6 +44,14 @@
               </h4>
               <p class="text-muted">基于 {{ mergedData.length }} 个变异计算</p>
             </div>
+            <!-- 神经网络风险预测 -->
+            <div class="mb-4">
+              <h4>神经网络预测乳腺癌风险: 
+                <span class="text-primary" data-bs-toggle="tooltip" title="基于深度学习模型对多个变异进行加权评分，预测乳腺癌风险">{{ modelScore }}%</span>
+                <span class="badge" :class="modelRiskBadgeClass">{{ modelRisk }}</span>
+              </h4>
+              <p class="text-muted">基于 {{ mergedData.length }} 个变异计算</p>
+            </div>
 
             <!-- 分页控制 -->
             <div class="row mb-3" v-if="mergedData.length > 0">
@@ -118,6 +126,7 @@
                         </span>
                       </div>
                     </th>
+                    <th>相关基因</th>
                     <th>疾病名称</th>
                     <th @click="sortBy('regulome_score')" class="sortable-header" data-bs-toggle="tooltip" title="RegulomeDB评分：评估非编码变异的调控潜力，分数越低表示调控证据越强">
                       <div class="d-flex align-items-center">
@@ -140,9 +149,11 @@
                     <td class="text-monospace">{{ item.variant_info.genotype || '-' }}</td>
                     <td>
                       <span class="badge" :class="getClinicalClass(item.clinvar_data?.ClinicalSignificance)">
-                        {{ item.clinvar_data?.ClinicalSignificance || '未知' }}
+                        {{ item.clinvar_data?.ClinicalSignificance || '未评估' }}
                       </span>
                     </td>
+                    
+                    <td class="text-monospace">{{ item.clinvar_data?.Gene || '-' }}</td>
                     <td class="text-monospace">{{ item.clinvar_data?.ClinvarDiseaseName || '-' }}</td>
                     
                     <td>
@@ -259,6 +270,9 @@
                 <div class="col-md-6">
                   <prs-distribution-chart :chartData="prsDistributionChartData" />
                 </div>
+                <div class="col-md-4">
+                  <model-risk-chart :riskLevel="modelRiskLevel" />
+                </div>
               </div>
             </template>
           </div>
@@ -287,6 +301,7 @@ import NavBar from '@components/NavBar.vue'
 import Footer from '@components/Footer.vue'
 import ClinvarChart from '@components/ClinvarChart.vue'
 import PrsDistributionChart from '@components/PrsDistributionChart.vue'
+import ModelRiskChart from '@components/ModelRiskChart.vue'
 import axios from 'axios';
 import { getTaskStatus, getResults } from '@services/api'
 
@@ -295,7 +310,8 @@ export default {
     NavBar,
     Footer,
     ClinvarChart,
-    PrsDistributionChart
+    PrsDistributionChart,
+    ModelRiskChart
   },
   data() {
     return {
@@ -311,7 +327,11 @@ export default {
       pageSize: 10,
       isGeneratingPDF: false,
       sortField: null,        // 当前排序字段
-      sortDirection: 'asc'    // 排序方向：asc 或 desc
+      sortDirection: 'asc' ,   // 排序方向：asc 或 desc
+      modelScore: 0,
+      modelRisk: '未评估',
+      modelRiskLevel: 0,
+      modelRiskBadgeClass: 'bg-secondary',
     }
   },
   computed: {
@@ -535,6 +555,8 @@ export default {
         this.prsScore = response.data.prsScore
         this.prsRisk = response.data.prsRisk
         this.mergedData = response.data.variants || []
+        this.modelScore = (response.data.modelScore * 100).toFixed(2)
+        this.modelRisk = response.data.modelRisk || '未评估'
 
         // 处理蛋白质数据
         this.processProteinData()
@@ -549,9 +571,23 @@ export default {
         } else {
           this.riskBadgeClass = 'bg-secondary'
         }
-        
+        // 设置风险等级徽章样式
+        if (this.modelRisk.includes('低')) {
+          this.modelRiskBadgeClass = 'bg-success'
+          this.modelRiskLevel = 1
+        } else if (this.modelRisk.includes('中等')) {
+          this.modelRiskBadgeClass = 'bg-warning'
+          this.modelRiskLevel = 2
+        } else if (this.modelRisk.includes('高')) {
+          this.modelRiskBadgeClass = 'bg-danger'
+          this.modelRiskLevel = 3
+        } else {
+          this.modelRiskBadgeClass = 'bg-secondary'
+          this.modelRiskLevel = 0
+        }
+
         this.taskStatus = 'completed'
-      } catch (error) {
+      }catch (error) {
         console.error('获取任务结果失败:', error)
         this.taskStatus = 'failed'
         this.errorMessage = '获取任务结果失败'
