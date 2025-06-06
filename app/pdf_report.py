@@ -426,6 +426,32 @@ class PDFReport(FPDF):
             self.set_font('SimSun', '', 8)
             self.cell(0, 5, "▶ 序列已截断显示（显示中间区域）", 0, 1)
 
+        if 'protein_features' in protein_info:
+            self.set_font('SimSun', '', 10)
+            features = protein_info['protein_features']
+            headers = ["特征", "变化值", "变化方向"]
+            rows = []
+            
+            for feature, value in features.items():
+                change_direction = ""
+                if isinstance(value, (int, float)):
+                    if value > 0:
+                        change_direction = "增加"
+                    elif value < 0:
+                        change_direction = "减少"
+                    else:
+                        change_direction = "无变化"
+                    
+                    rows.append([
+                        feature,
+                        f"{value:.4f}",
+                        change_direction
+                    ])
+            
+            # 添加表格
+            self.ln(5)
+            self.add_table("蛋白质特征变化", headers, rows, max_rows=10)
+
     def _format_sequence(self, sequence, mut_pos, line_length=80):
         """格式化序列，添加行号和高亮突变位置"""
         if not sequence:
