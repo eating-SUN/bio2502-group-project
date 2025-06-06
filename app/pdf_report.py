@@ -231,7 +231,7 @@ class PDFReport(FPDF):
                     raise e
             self.ln(5)
 
-    def add_table(self, title, headers, rows, max_rows=15):
+    def add_table(self, title, headers, rows, max_rows=30):
         """添加表格 - 使用Matplotlib生成表格图片"""
         self.add_section(title, [])
         
@@ -453,119 +453,78 @@ class PDFReport(FPDF):
         
         return "\n".join(formatted)
 
-    def add_chart(self, title, chart_type, chart_data):
-        """添加图表到PDF - 使用Agg后端避免线程问题"""
+    def add_chart(self, chart_data):
         try:
-            # 确保Matplotlib字体设置是最新的
-            self.setup_matplotlib_fonts()
+            plt.switch_backend('Agg')
+            fig, ax = plt.subplots(figsize=(10, 8))
             
-            # 创建图表 - 使用Agg后端
-            plt.switch_backend('Agg')  # 确保使用非交互式后端
-            fig, ax = plt.subplots(figsize=(8, 5))
+            if chart_data['type'] == 'pie':
+                # 饼图生成逻辑
+                sizes = chart_data['data']['datasets'][0]['data']
+                labels = chart_data['data']['labels']
+                colors = chart_data['data']['datasets'][0]['backgroundColor']
+                
+                # 过滤掉大小为0的数据
+                non_zero_indices = [i for i, size in enumerate(sizes) if size > 0]
+                non_zero_sizes = [sizes[i] for i in non_zero_indices]
+                non_zero_labels = [labels[i] for i in non_zero_indices]
+                non_zero_colors = [colors[i] for i in non_zero_indices]
+                
+                # 绘制饼图（不在图中显示标签）
+                wedges, texts, autotexts = ax.pie(
+                    non_zero_sizes, 
+                    labels=None,  # 不在图中显示标签
+                    colors=non_zero_colors,
+                    autopct=lambda pct: f'{pct:.1f}%' if pct > 0 else '',  # 只显示大于0的百分比
+                    startangle=90, 
+                    wedgeprops={'edgecolor': 'white'}, 
+                    textprops={'fontsize': 18}
+                )
+                ax.axis('equal')
+                
+                # 在侧边添加图例（显示所有标签）
+                ax.legend(
+                    wedges, 
+                    non_zero_labels, 
+                    title="类别", 
+                    loc="upper left", 
+                    bbox_to_anchor=(1, 0, 0.5, 1),
+                    title_fontsize=18, 
+                    fontsize=18
+                )
             
-            if chart_type == "clinvar":
-                # 临床意义分布图
-                labels = chart_data.get('labels', [])
-                sizes = chart_data.get('data', [])
-                colors = [
-                    '#e74c3c', '#f39c12', '#3498db', 
-                    '#2ecc71', '#27ae60', '#95a5a6'
-                ]
+            elif chart_data['type'] == 'stacked_bar':
+                # 堆叠条形图生成逻辑
+                labels = chart_data['data']['labels']
+                datasets = chart_data['data']['datasets']
                 
-                # 过滤掉大小为0的标签
-                filtered_labels = []
-                filtered_sizes = []
-                filtered_colors = []
+                bottom = np.zeros(len(labels))
                 
-                for label, size, color in zip(labels, sizes, colors):
-                    if size > 0:
-                        filtered_labels.append(label)
-                        filtered_sizes.append(size)
-                        filtered_colors.append(color)
+                for dataset in datasets:
+                    ax.bar(labels, dataset['data'], bottom=bottom, 
+                        color=dataset['backgroundColor'], label=dataset['label'])
+                    bottom += np.array(dataset['data'])
                 
-                if filtered_sizes:
-                    # 添加百分比标签
-                    def autopct_format(values):
-                        def my_format(pct):
-                            total = sum(values)
-                            val = int(round(pct*total/100.0))
-                            return f'{val}\n({pct:.1f}%)'
-                        return my_format
-                    
-                    ax.pie(filtered_sizes, labels=filtered_labels, colors=filtered_colors, 
-                           autopct=autopct_format(filtered_sizes), startangle=90, 
-                           wedgeprops={'edgecolor': 'white'}, textprops={'fontsize': 8})
-                    ax.axis('equal')
-                    ax.set_title('临床意义分布', fontsize=14)
-                else:
-                    # 如果没有数据，显示占位符
-                    ax.text(0.5, 0.5, '无临床意义数据', 
-                            ha='center', va='center', fontsize=12)
-            elif chart_type == "model_prediction":
-                labels = chart_data.get('labels', [])
-                sizes = chart_data.get('data', [])
-                colors = chart_data.get('colors', [])
+                ax.set_xlabel('染色体', fontsize=24)
+                ax.set_ylabel('变异数量', fontsize=24)
+                ax.legend(title='类别', bbox_to_anchor=(1.05, 1), loc='upper left', title_fontsize=18, fontsize=18)
             
-            elif chart_type == "prs_distribution":
-                # PRS分布图
-                labels = chart_data.get('labels', [])
-                data = chart_data.get('data', [])
-                
-                # 排序染色体标签
-                try:
-                    # 处理染色体排序
-                    def chrom_key(x):
-                        if x.startswith('chr'):
-                            num = x[3:]
-                        else:
-                            num = x
-                        try:
-                            return int(num)
-                        except:
-                            return float('inf')
-                    
-                    sorted_indices = sorted(range(len(labels)), key=lambda i: chrom_key(labels[i]))
-                    labels = [labels[i] for i in sorted_indices]
-                    data = [data[i] for i in sorted_indices]
-                except:
-                    pass
-                
-                if data:
-                    # 创建条形图
-                    bars = ax.bar(labels, data, color='#3498db')
-                    ax.set_title('染色体变异分布', fontsize=14)
-                    ax.set_ylabel('变异数量')
-                    ax.tick_params(axis='x', rotation=45)
-                    
-                    # 在每个条形上添加数值
-                    for bar in bars:
-                        height = bar.get_height()
-                        ax.annotate(f'{height}',
-                                    xy=(bar.get_x() + bar.get_width() / 2, height),
-                                    xytext=(0, 3),
-                                    textcoords="offset points",
-                                    ha='center', va='bottom', fontsize=8)
-                else:
-                    # 如果没有数据，显示占位符
-                    ax.text(0.5, 0.5, '无变异分布数据', 
-                            ha='center', va='center', fontsize=12)
-            
-            # 保存图表为图像
-            buf = io.BytesIO()
+            plt.title(chart_data['title'], fontsize=30)
             plt.tight_layout()
-            plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
-            plt.close(fig)  # 关闭图形释放内存
             
-            # 在PDF中添加图像
-            self.image(buf, type='png', x=10, w=180)
-            self.ln(5)
+            # 保存并添加到PDF
+            buf = io.BytesIO()
+            plt.savefig(buf, format='png', dpi=150)
+            plt.close(fig)
+            
+            self.image(buf, type='png', x=self.get_x(), w=90)
+            self.ln(70)
+            
         except Exception as e:
             print(f"添加图表失败: {e}")
-            # 添加错误信息到PDF
             self.set_font_based_on_style('B')
             self.cell(0, 10, f"图表生成失败: {str(e)}", 0, 1)
-            self.ln(5)
-    
+
     def footer(self):
         self.set_y(-15)
         self.font_size = 8
