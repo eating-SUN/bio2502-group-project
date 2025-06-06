@@ -1,6 +1,6 @@
 import sqlite3
 
-DB_PATH = "data/clinvar/clinvar.db"
+DB_PATH = "data/clinvar/variant_summary.db"
 
 def query_clinvar(variant_id):
     """
@@ -13,16 +13,14 @@ def query_clinvar(variant_id):
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
 
-        if variant_id.isalpha():  # 简单判断为基因名（全字母）
-            cursor.execute("SELECT * FROM clinvar WHERE gene = ?", (variant_id,))
+        if variant_id.isdigit():
+            cursor.execute("SELECT * FROM clinvar WHERE GeneID = ?", (variant_id,))
             rows = cursor.fetchall()
 
-        elif variant_id.startswith('rs'):
-            rs_num = variant_id[2:]  # 去掉rs前缀
-            cursor.execute("SELECT * FROM clinvar WHERE rsid = ?", (rs_num,))
-            rows = cursor.fetchall()
+        elif str(variant_id).startswith('rs'):
+            cursor.execute("SELECT * FROM clinvar WHERE rsid = ?", (variant_id,))
 
-        elif ':' in variant_id:
+        elif ':' in str(variant_id):
             chrom, pos = variant_id.split(':')
             cursor.execute("SELECT * FROM clinvar WHERE chrom = ? AND pos = ?", (chrom, int(pos)))
             rows = cursor.fetchall()
@@ -38,17 +36,17 @@ def query_clinvar(variant_id):
         # 取第一条记录
         row = rows[0]
         # 根据表结构拆包
-        chrom, pos, rsid, ref, alt, gene, consequence, af_exac, af_tgp, clndn, clnsig = row
+        (GeneID, ClinicalSignificance, rsid, Chromosome, Start, Stop, ReferenceAlleleVCF, AlternateAlleleVCF) = row
 
         return {
-            'Chromosome': f'chr{chrom}' if chrom.isdigit() else chrom,
-            'Pos': pos,
-            'ID': f'rs{rsid}' if rsid else 'NA',
-            'Ref': ref,
-            'Alt': alt,
-            'Gene': gene,
-            'ClinvarDiseaseName': clndn if clndn else 'NA',
-            'ClinicalSignificance': clnsig if clnsig else 'Unknown'
+            'Chromosome': Chromosome,
+            'Start': Start,
+            'Stop': Stop,
+            'ID': rsid if rsid else 'NA',
+            'Ref': ReferenceAlleleVCF if ReferenceAlleleVCF else 'NA',
+            'Alt': AlternateAlleleVCF if AlternateAlleleVCF else 'NA',
+            'ClinicalSignificance': ClinicalSignificance if ClinicalSignificance else 'Unknown',
+            'Gene': GeneID if GeneID else 'Unknown',
         }
 
     except Exception as e:

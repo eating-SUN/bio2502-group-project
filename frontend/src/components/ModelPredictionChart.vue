@@ -35,14 +35,7 @@ export default {
       const ctx = this.$refs.chartCanvas.getContext('2d');
       this.chartInstance = new Chart(ctx, {
         type: 'pie',
-        data: {
-          labels: this.chartData.labels,
-          datasets: [{
-            data: this.chartData.data,
-            backgroundColor: this.chartData.backgroundColor,
-            borderWidth: 1
-          }]
-        },
+        data: this.chartData, 
         options: {
           responsive: true,
           maintainAspectRatio: false,
@@ -77,8 +70,9 @@ export default {
       this.chartInstance.destroy();
     }
   }
-};
+}
 </script>
+
 
 <style scoped>
 .chart-container {

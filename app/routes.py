@@ -8,6 +8,11 @@ import traceback
 from fpdf import FPDF
 import tempfile
 from flask import send_from_directory
+from collections import defaultdict
+import matplotlib.pyplot as plt
+import numpy as np
+from io import BytesIO
+from datetime import datetime
 
 main = Blueprint('main', __name__)
 
@@ -151,6 +156,8 @@ def get_results_api():
 
 
 
+
+
 @main.route('/api/report', methods=['GET'])
 def generate_report():
     task_id = request.args.get('task_id')
@@ -176,17 +183,16 @@ def generate_report():
         # 添加PRS信息
         result = task.get('result', {})
         pdf.add_section("PRS风险评分", [
-            f"评分: {result.get('summary',{}).get('prs_score', 'N/A')}",
-            f"风险等级: {result.get('summary',{}).get('prs_risk', '未评估')}",
+            f"评分: {task.get('prs_score', 'N/A')}",
+            f"风险等级: {task.get('prs_risk', '未评估')}",
             f"基于 {len(result.get('variants', []))} 个变异计算"
         ])
         
         # 添加神经网络预测信息
-        model_score = result.get('summary',{}).get('model_score', 0.0)
-        model_risk = result.get('summary',{}).get('model_risk', '未评估')
+        model_score = task.get('score', 0.0)
+        
         pdf.add_section("神经网络预测风险评分", [
-        f"评分: {model_score * 100:.2f}%",
-        f"风险等级: {model_risk}"
+            f"评分: {model_score * 100:.2f}%"
         ])
         
         # 添加变异摘要
@@ -280,42 +286,191 @@ def generate_report():
                 
                 pdf.add_protein_section(f"蛋白质变异 #{idx+1}", protein_info)
         
-        # 添加图表 - 使用try-except确保即使图表失败也能生成报告
+        
         try:
             # 临床意义分布图
             clinvar_data = {
-                'labels': ['Pathogenic', 'Likely pathogenic', 'Uncertain significance', 
-                          'Likely benign', 'Benign', 'Unknown'],
-                'data': [0, 0, 0, 0, 0, 0]
+                'type': 'pie',
+                'title': '临床意义分布',
+                'data': {
+                    'labels': ['Pathogenic', 'Likely pathogenic', 'Uncertain significance', 
+                               'Likely benign', 'Benign', 'Unknown'],
+                    'datasets': [{
+                        'data': [0, 0, 0, 0, 0, 0],
+                        'backgroundColor': [
+                            '#e74c3c', '#f39c12', '#3498db', 
+                            '#2ecc71', '#27ae60', '#95a5a6'
+                        ]
+                    }]
+                }
             }
-            
+
+            # 模型预测分布图（饼图）
+            model_prediction_data = {
+                'type': 'pie',
+                'title': '模型预测结果分布',
+                'data': {
+                    'labels': ['Pathogenic', 'Likely_pathogenic', 'Uncertain_significance', 
+                               'Likely_benign', 'Benign', 'Unknown'],
+                    'datasets': [{
+                        'data': [0, 0, 0, 0, 0, 0],
+                        'backgroundColor': [
+                            '#e74c3c', '#f39c12', '#3498db', 
+                            '#2ecc71', '#27ae60', '#95a5a6'
+                        ]
+                    }]
+                }
+            }
+
+            # 染色体临床分布图（堆叠条形图）
+            clinvar_distribution_data = {
+                'type': 'stacked_bar',
+                'title': '染色体临床意义分布',
+                'data': {
+                    'labels': [],
+                    'datasets': []
+                }
+            }
+
+            # 染色体预测分布图（堆叠条形图）
+            chromosome_prediction_data = {
+                'type': 'stacked_bar',
+                'title': '染色体预测结果分布',
+                'data': {
+                    'labels': [],
+                    'datasets': []
+                }
+            }
+
+            # 填充数据
             for v in variants:
+                # 临床意义数据
                 significance = v.get('clinvar_data', {}).get('ClinicalSignificance', 'Unknown')
-                if significance in clinvar_data['labels']:
-                    index = clinvar_data['labels'].index(significance)
-                    clinvar_data['data'][index] += 1
-                else:
-                    clinvar_data['data'][5] += 1  # Unknown
+                if significance in clinvar_data['data']['labels']:
+                    index = clinvar_data['data']['labels'].index(significance)
+                    clinvar_data['data']['datasets'][0]['data'][index] += 1
+                
+                # 模型预测数据
+                prediction = v.get('predict_result', {}).get('clnsig_pred', 'Unknown')
+                if prediction in model_prediction_data['data']['labels']:
+                    index = model_prediction_data['data']['labels'].index(prediction)
+                    model_prediction_data['data']['datasets'][0]['data'][index] += 1
+
+            # 染色体数据处理
+            chromosomes = sorted(set(
+                v.get('variant_info', {}).get('chrom', 'Unknown') 
+                for v in variants
+            ))
+
+            # 临床意义类别
+            clinvar_categories = [
+                'Pathogenic', 'Likely pathogenic', 'Uncertain significance',
+                'Likely benign', 'Benign', 'Unknown'
+            ]
+
+            # 预测类别
+            prediction_categories = [
+                'Pathogenic', 'Likely_pathogenic', 'Uncertain_significance',
+                'Likely_benign', 'Benign', 'Unknown'
+            ]
+
+            # 为每个染色体创建数据
+            for chrom in chromosomes:
+                clinvar_counts = {cat: 0 for cat in clinvar_categories}
+                prediction_counts = {cat: 0 for cat in prediction_categories}
+                
+                for v in variants:
+                    if v.get('variant_info', {}).get('chrom') == chrom:
+                        # 临床意义计数
+                        sig = v.get('clinvar_data', {}).get('ClinicalSignificance', 'Unknown')
+                        if sig in clinvar_counts:
+                            clinvar_counts[sig] += 1
+                        
+                        # 预测结果计数
+                        pred = v.get('predict_result', {}).get('clnsig_pred', 'Unknown')
+                        if pred in prediction_counts:
+                            prediction_counts[pred] += 1
+                
+                # 添加到数据集
+                clinvar_distribution_data['data']['labels'].append(chrom)
+                chromosome_prediction_data['data']['labels'].append(chrom)
+
+            # 创建数据集
+            clinvar_colors = ['#e74c3c', '#f39c12', '#3498db', '#2ecc71', '#27ae60', '#95a5a6']
+            prediction_colors = ['#e74c3c', '#f39c12', '#3498db', '#2ecc71', '#27ae60', '#95a5a6']
+
+            for i, cat in enumerate(clinvar_categories):
+                data = []
+                for chrom in chromosomes:
+                    count = 0
+                    for v in variants:
+                        if v.get('variant_info', {}).get('chrom') == chrom:
+                            sig = v.get('clinvar_data', {}).get('ClinicalSignificance', 'Unknown')
+                            if sig == cat:
+                                count += 1
+                    data.append(count)
+                
+                clinvar_distribution_data['data']['datasets'].append({
+                    'label': cat,
+                    'data': data,
+                    'backgroundColor': clinvar_colors[i]
+                })
+
+            for i, cat in enumerate(prediction_categories):
+                data = []
+                for chrom in chromosomes:
+                    count = 0
+                    for v in variants:
+                        if v.get('variant_info', {}).get('chrom') == chrom:
+                            pred = v.get('predict_result', {}).get('clnsig_pred', 'Unknown')
+                            if pred == cat:
+                                count += 1
+                    data.append(count)
+                
+                chromosome_prediction_data['data']['datasets'].append({
+                    'label': cat,
+                    'data': data,
+                    'backgroundColor': prediction_colors[i]
+                })
             
-            pdf.add_chart("临床意义分布", "clinvar", clinvar_data)
-            
-            # PRS分布图
-            chrom_counts = {}
-            for v in variants:
-                chrom = v.get('variant_info', {}).get('chrom', 'Unknown')
-                chrom_counts[chrom] = chrom_counts.get(chrom, 0) + 1
-            
-            prs_data = {
-                'labels': list(chrom_counts.keys()),
-                'data': list(chrom_counts.values())
-            }
-            
-            pdf.add_chart("染色体变异分布", "prs_distribution", prs_data)
+            charts = [
+                clinvar_data,
+                model_prediction_data,
+                clinvar_distribution_data,
+                chromosome_prediction_data
+            ]
+            # 集中在一页展示
+            for i in range(0, len(charts), 4):
+                pdf.add_page()
+                
+                # 第一行
+                # 第一个图表（左上）
+                pdf.set_y(40)
+                pdf.set_x(12)  # 左侧边距
+                pdf.add_chart(charts[i])
+                
+                # 第二个图表（右上）
+                if i+1 < len(charts):
+                    pdf.set_y(40)
+                    pdf.set_x(pdf.w / 2 + 12)  # 右侧位置
+                    pdf.add_chart(charts[i+1])
+                
+                # 第二行
+                # 第三个图表（左下）
+                if i+2 < len(charts):
+                    pdf.set_y(130)  # 下方位置，根据图表高度调整
+                    pdf.set_x(12)
+                    pdf.add_chart(charts[i+2])
+                
+                # 第四个图表（右下）
+                if i+3 < len(charts):
+                    pdf.set_y(130)
+                    pdf.set_x(pdf.w / 2 + 12)
+                    pdf.add_chart(charts[i+3])
+
         except Exception as e:
             print(f"生成图表失败: {e}")
-            # 添加错误信息到PDF
-            pdf.add_section("图表生成失败", [f"图表生成过程中出错: {str(e)}"])
-        
+            traceback.print_exc()
         # 保存临时文件
         with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
             pdf.output(tmp.name, 'F')  # 使用output方法保存文件

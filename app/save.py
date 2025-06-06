@@ -231,7 +231,7 @@ class PDFReport(FPDF):
                     raise e
             self.ln(5)
 
-    def add_table(self, title, headers, rows, max_rows=30):
+    def add_table(self, title, headers, rows, max_rows=15):
         """添加表格 - 使用Matplotlib生成表格图片"""
         self.add_section(title, [])
         
@@ -456,7 +456,7 @@ class PDFReport(FPDF):
     def add_chart(self, chart_data):
         try:
             plt.switch_backend('Agg')
-            fig, ax = plt.subplots(figsize=(10, 8))
+            fig, ax = plt.subplots(figsize=(8, 5))
             
             if chart_data['type'] == 'pie':
                 # 饼图生成逻辑
@@ -464,34 +464,24 @@ class PDFReport(FPDF):
                 labels = chart_data['data']['labels']
                 colors = chart_data['data']['datasets'][0]['backgroundColor']
                 
-                # 过滤掉大小为0的数据
-                non_zero_indices = [i for i, size in enumerate(sizes) if size > 0]
-                non_zero_sizes = [sizes[i] for i in non_zero_indices]
-                non_zero_labels = [labels[i] for i in non_zero_indices]
-                non_zero_colors = [colors[i] for i in non_zero_indices]
+                # 过滤掉大小为0的标签
+                filtered_labels = []
+                filtered_sizes = []
+                filtered_colors = []
                 
-                # 绘制饼图（不在图中显示标签）
-                wedges, texts, autotexts = ax.pie(
-                    non_zero_sizes, 
-                    labels=None,  # 不在图中显示标签
-                    colors=non_zero_colors,
-                    autopct=lambda pct: f'{pct:.1f}%' if pct > 0 else '',  # 只显示大于0的百分比
-                    startangle=90, 
-                    wedgeprops={'edgecolor': 'white'}, 
-                    textprops={'fontsize': 18}
-                )
-                ax.axis('equal')
+                for i, size in enumerate(sizes):
+                    if size > 0:
+                        filtered_labels.append(labels[i])
+                        filtered_sizes.append(size)
+                        filtered_colors.append(colors[i])
                 
-                # 在侧边添加图例（显示所有标签）
-                ax.legend(
-                    wedges, 
-                    non_zero_labels, 
-                    title="类别", 
-                    loc="upper left", 
-                    bbox_to_anchor=(1, 0, 0.5, 1),
-                    title_fontsize=18, 
-                    fontsize=18
-                )
+                if filtered_sizes:
+                    ax.pie(filtered_sizes, labels=filtered_labels, colors=filtered_colors,
+                        autopct=lambda pct: f'{pct:.1f}%' if pct > 5 else '',
+                        startangle=90, wedgeprops={'edgecolor': 'white'})
+                    ax.axis('equal')
+                else:
+                    ax.text(0.5, 0.5, '无数据', ha='center', va='center', fontsize=12)
             
             elif chart_data['type'] == 'stacked_bar':
                 # 堆叠条形图生成逻辑
@@ -505,11 +495,11 @@ class PDFReport(FPDF):
                         color=dataset['backgroundColor'], label=dataset['label'])
                     bottom += np.array(dataset['data'])
                 
-                ax.set_xlabel('染色体', fontsize=24)
-                ax.set_ylabel('变异数量', fontsize=24)
-                ax.legend(title='类别', bbox_to_anchor=(1.05, 1), loc='upper left', title_fontsize=18, fontsize=18)
+                ax.set_xlabel('染色体')
+                ax.set_ylabel('变异数量')
+                ax.legend(title='类别', bbox_to_anchor=(1.05, 1), loc='upper left')
             
-            plt.title(chart_data['title'], fontsize=30)
+            plt.title(chart_data['title'], fontsize=14)
             plt.tight_layout()
             
             # 保存并添加到PDF
@@ -524,9 +514,338 @@ class PDFReport(FPDF):
             print(f"添加图表失败: {e}")
             self.set_font_based_on_style('B')
             self.cell(0, 10, f"图表生成失败: {str(e)}", 0, 1)
-
     def footer(self):
         self.set_y(-15)
         self.font_size = 8
         self.set_font_based_on_style('I')  # 斜体
         self.cell(0, 10, f'第 {self.page_no()} 页', 0, 0, 'C')
+
+@main.route('/api/report', methods=['GET'])
+def generate_report():
+    task_id = request.args.get('task_id')
+    if not task_id:
+        return jsonify({'error': 'Missing task_id'}), 400
+    
+    task = tasks.get(task_id)
+    if not task:
+        return jsonify({'error': 'Invalid task_id'}), 404
+    
+    if task['status'] != 'completed':
+        return jsonify({'error': 'Task not completed'}), 400
+    
+    tmp_path = None
+    try:
+        # 生成PDF报告 - 设置自定义标题
+        custom_title = "乳腺癌遗传风险分析报告"
+        pdf = pdf_report.PDFReport(title=custom_title)  # 修复初始化参数
+        
+        # 添加封面标题
+        pdf.set_title(custom_title)
+        
+        # 添加PRS信息
+        result = task.get('result', {})
+        pdf.add_section("PRS风险评分", [
+            f"评分: {result.get('summary',{}).get('prs_score', 'N/A')}",
+            f"风险等级: {result.get('summary',{}).get('prs_risk', '未评估')}",
+            f"基于 {len(result.get('variants', []))} 个变异计算"
+        ])
+        
+        # 添加神经网络预测信息
+        model_score = result.get('summary',{}).get('model_score', 0.0)
+        model_risk = result.get('summary',{}).get('model_risk', '未评估')
+        pdf.add_section("神经网络预测风险评分", [
+        f"评分: {model_score * 100:.2f}%",
+        f"风险等级: {model_risk}"
+        ])
+        
+        # 添加变异摘要
+        variants = result.get('variants', [])
+        
+        # 安全地计算各种变异数量
+        pathogenic_count = 0
+        protein_affecting_count = 0
+        regulome_scores = []
+        
+        for v in variants:
+            clinvar_data = v.get('clinvar_data', {})
+            # 检查是否存在ClinicalSignificance字段
+            if clinvar_data and clinvar_data.get('ClinicalSignificance') == 'Pathogenic':
+                pathogenic_count += 1
+            
+            if v.get('protein_info'):
+                protein_affecting_count += 1
+            
+            regulome_score = v.get('regulome_score', {})
+            if isinstance(regulome_score, dict) and 'ranking' in regulome_score:
+                regulome_scores.append(regulome_score['ranking'][0])
+            
+        
+        # 计算RegulomeDB分数分布
+        regulome_distribution = {}
+        for score in regulome_scores:
+            regulome_distribution[score] = regulome_distribution.get(score, 0) + 1
+        
+        pdf.add_section("变异摘要", [
+            f"总变异数: {len(variants)}",
+            f"致病性变异: {pathogenic_count}",
+            f"蛋白质影响变异: {protein_affecting_count}",
+            f"高影响RegulomeDB分数 (1-2): {sum(count for score, count in regulome_distribution.items() if score in '12')}",
+            f"中等影响RegulomeDB分数 (3-4): {sum(count for score, count in regulome_distribution.items() if score in '34')}",
+            f"低影响RegulomeDB分数 (5-6): {sum(count for score, count in regulome_distribution.items() if score in '56')}"
+        ])
+        
+        # 添加详细变异表格
+        if variants:
+            headers = ["变异ID", "参考序列", "变异序列", "临床意义","基因", "模型预测标签", "模型预测得分", "RegulomeDB分数"]
+            rows = []
+            for v in variants[:15]:  # 只显示前15个
+                var_info = v.get('variant_info', {})
+                clinvar_data = v.get('clinvar_data', {})
+                regulome_score = v.get('regulome_score', {})
+                predict_result = v.get('predict_result', {})
+                predict_label = predict_result.get('clnsig_pred', '未知')
+                predict_score = predict_result.get('predict_score', 0.0)
+
+                label_translation = {
+                    'Benign': '良性',
+                    'Likely_benign': '可能良性',
+                    'Uncertain_significance': '意义未明',
+                    'Likely_pathogenic': '可能致病',
+                    'Pathogenic': '致病'
+                }
+                translated_label = label_translation.get(predict_label, '未知')
+                
+                # 格式化RegulomeDB分数
+                if isinstance(regulome_score, dict) and 'ranking' in regulome_score:
+                    regulome_text = f"{regulome_score['ranking']} ({regulome_score.get('probability_score', 'N/A')})"
+                else:
+                    regulome_text = str(regulome_score)
+                
+                # 安全地获取各字段值
+                rows.append([
+                    var_info.get('id', ''),
+                    var_info.get('ref', ''),
+                    var_info.get('alt', ''),
+                    clinvar_data.get('ClinicalSignificance', '未知'),
+                    clinvar_data.get('Gene', '-'),  # 添加基因列
+                    translated_label,  # 模型预测标签   
+                    f"{predict_score:.4f}" if predict_score else 'N/A',  # 模型预测得分
+                    regulome_text
+                ])
+            pdf.add_table("变异列表 (前15个)", headers, rows)
+        
+        # 添加蛋白质变异信息
+        protein_variants = [v for v in variants if v.get('protein_info')]
+        if protein_variants:
+            pdf.add_section("蛋白质变异信息", [f"共发现 {len(protein_variants)} 个影响蛋白质功能的变异"])
+            # 只展示前3个蛋白质变异
+            for idx, variant in enumerate(protein_variants[:3]):
+                protein_info = variant.get('protein_info', {})
+                # 确保有足够的序列信息
+                if 'wt_seq' not in protein_info:
+                    protein_info['wt_seq'] = "无野生型序列数据"
+                if 'mut_seq' not in protein_info:
+                    protein_info['mut_seq'] = "无突变型序列数据"
+                
+                pdf.add_protein_section(f"蛋白质变异 #{idx+1}", protein_info)
+        
+        # 添加图表 - 使用try-except确保即使图表失败也能生成报告
+        try:
+            # 临床意义分布图
+            clinvar_data = {
+            'type': 'pie',
+            'title': '临床意义分布',
+            'data': {
+                'labels': ['Pathogenic', 'Likely pathogenic', 'Uncertain significance', 
+                        'Likely benign', 'Benign', 'Unknown'],
+                'datasets': [{
+                    'data': [0, 0, 0, 0, 0, 0],
+                    'backgroundColor': [
+                        '#e74c3c', '#f39c12', '#3498db', 
+                        '#2ecc71', '#27ae60', '#95a5a6'
+                    ]
+                }]
+            }
+        }
+
+        # 模型预测分布图（饼图）
+        model_prediction_data = {
+            'type': 'pie',
+            'title': '模型预测结果分布',
+            'data': {
+                'labels': ['Pathogenic', 'Likely_pathogenic', 'Uncertain_significance', 
+                        'Likely_benign', 'Benign', 'Unknown'],
+                'datasets': [{
+                    'data': [0, 0, 0, 0, 0, 0],
+                    'backgroundColor': [
+                        '#e74c3c', '#f39c12', '#3498db', 
+                        '#2ecc71', '#27ae60', '#95a5a6'
+                    ]
+                }]
+            }
+        }
+
+        # 染色体临床分布图（堆叠条形图）
+        clinvar_distribution_data = {
+            'type': 'stacked_bar',
+            'title': '染色体临床意义分布',
+            'data': {
+                'labels': [],
+                'datasets': []
+            }
+        }
+
+        # 染色体预测分布图（堆叠条形图）
+        chromosome_prediction_data = {
+            'type': 'stacked_bar',
+            'title': '染色体预测结果分布',
+            'data': {
+                'labels': [],
+                'datasets': []
+            }
+        }
+
+        # 填充数据
+        for v in variants:
+            # 临床意义数据
+            significance = v.get('clinvar_data', {}).get('ClinicalSignificance', 'Unknown')
+            if significance in clinvar_data['data']['labels']:
+                index = clinvar_data['data']['labels'].index(significance)
+                clinvar_data['data']['datasets'][0]['data'][index] += 1
+            
+            # 模型预测数据
+            prediction = v.get('predict_result', {}).get('clnsig_pred', 'Unknown')
+            if prediction in model_prediction_data['data']['labels']:
+                index = model_prediction_data['data']['labels'].index(prediction)
+                model_prediction_data['data']['datasets'][0]['data'][index] += 1
+
+        # 染色体数据处理
+        chromosomes = sorted(set(
+            v.get('variant_info', {}).get('chrom', 'Unknown') 
+            for v in variants
+        ))
+
+        # 临床意义类别
+        clinvar_categories = [
+            'Pathogenic', 'Likely pathogenic', 'Uncertain significance',
+            'Likely benign', 'Benign', 'Unknown'
+        ]
+
+        # 预测类别
+        prediction_categories = [
+            'Pathogenic', 'Likely_pathogenic', 'Uncertain_significance',
+            'Likely_benign', 'Benign', 'Unknown'
+        ]
+
+        # 为每个染色体创建数据
+        for chrom in chromosomes:
+            clinvar_counts = {cat: 0 for cat in clinvar_categories}
+            prediction_counts = {cat: 0 for cat in prediction_categories}
+            
+            for v in variants:
+                if v.get('variant_info', {}).get('chrom') == chrom:
+                    # 临床意义计数
+                    sig = v.get('clinvar_data', {}).get('ClinicalSignificance', 'Unknown')
+                    if sig in clinvar_counts:
+                        clinvar_counts[sig] += 1
+                    
+                    # 预测结果计数
+                    pred = v.get('predict_result', {}).get('clnsig_pred', 'Unknown')
+                    if pred in prediction_counts:
+                        prediction_counts[pred] += 1
+            
+            # 添加到数据集
+            clinvar_distribution_data['data']['labels'].append(chrom)
+            chromosome_prediction_data['data']['labels'].append(chrom)
+
+        # 创建数据集
+        clinvar_colors = ['#e74c3c', '#f39c12', '#3498db', '#2ecc71', '#27ae60', '#95a5a6']
+        prediction_colors = ['#e74c3c', '#f39c12', '#3498db', '#2ecc71', '#27ae60', '#95a5a6']
+
+        for i, cat in enumerate(clinvar_categories):
+            data = []
+            for chrom in chromosomes:
+                count = 0
+                for v in variants:
+                    if v.get('variant_info', {}).get('chrom') == chrom:
+                        sig = v.get('clinvar_data', {}).get('ClinicalSignificance', 'Unknown')
+                        if sig == cat:
+                            count += 1
+                data.append(count)
+            
+            clinvar_distribution_data['data']['datasets'].append({
+                'label': cat,
+                'data': data,
+                'backgroundColor': clinvar_colors[i]
+            })
+
+        for i, cat in enumerate(prediction_categories):
+            data = []
+            for chrom in chromosomes:
+                count = 0
+                for v in variants:
+                    if v.get('variant_info', {}).get('chrom') == chrom:
+                        pred = v.get('predict_result', {}).get('clnsig_pred', 'Unknown')
+                        if pred == cat:
+                            count += 1
+                data.append(count)
+            
+            chromosome_prediction_data['data']['datasets'].append({
+                'label': cat,
+                'data': data,
+                'backgroundColor': prediction_colors[i]
+            })
+        
+        charts = [
+            clinvar_data,
+            model_prediction_data,
+            clinvar_distribution_data,
+            chromosome_prediction_data
+        ]
+
+        # 每页显示两个图表
+        for i in range(0, len(charts), 2):
+            pdf.add_page()
+            
+            # 第一个图表
+            pdf.set_y(40)
+            pdf.set_font_based_on_style('B')
+            pdf.cell(0, 10, charts[i]['title'], 0, 1, 'C')
+            pdf.ln(2)
+            pdf.add_chart(charts[i])
+            
+            # 第二个图表（如果有）
+            if i+1 < len(charts):
+                pdf.set_y(40)
+                pdf.set_x(pdf.w / 2 + 10)
+                pdf.set_font_based_on_style('B')
+                pdf.cell(0, 10, charts[i+1]['title'], 0, 1, 'C')
+                pdf.ln(2)
+                pdf.set_x(pdf.w / 2 + 10)
+                pdf.add_chart(charts[i+1])
+        
+        
+        
+        # 保存临时文件
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
+            pdf.output(tmp.name, 'F')  # 使用output方法保存文件
+            tmp_path = tmp.name
+        
+        return send_file(
+            tmp_path,
+            as_attachment=True,
+            download_name=f'breast_cancer_risk_report_{task_id}.pdf',
+            mimetype='application/pdf'
+        )
+    
+    except Exception as e:
+        print(f"生成报告失败: {e}")
+        traceback.print_exc()
+        return jsonify({'error': f'报告生成失败: {str(e)}'}), 500
+    
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except Exception as e:
+                print(f"删除临时文件失败: {e}")

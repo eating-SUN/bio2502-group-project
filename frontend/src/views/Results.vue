@@ -562,69 +562,71 @@ modelPredictionChartData() {
       return this.proteinVariants.length > 0;
     },
 chromosomePredictionChartData() {
-      const chromData = {};
-      
-      this.mergedData.forEach(item => {
-        const chrom = item.variant_info?.chrom || 'Unknown';
-        const label = item.predict_result?.clnsig_pred || 'Unknown';
-        
-        if (!chromData[chrom]) {
-          chromData[chrom] = {
-            Benign: 0,
-            Likely_benign: 0,
-            Uncertain_significance: 0,
-            Likely_pathogenic: 0,
-            Pathogenic: 0,
-            Unknown: 0
-          };
-        }
-        
-        chromData[chrom][label] = (chromData[chrom][label] || 0) + 1;
-      });
-      
-      // 排序染色体
-      const sortedChroms = Object.keys(chromData).sort((a, b) => {
-        const aNum = parseInt(a.replace('chr', '')) || 0;
-        const bNum = parseInt(b.replace('chr', '')) || 0;
-        return aNum - bNum;
-      });
-      
-      // 定义标签映射和颜色
-      const labelMap = {
-        'Benign': '良性',
-        'Likely_benign': '可能良性',
-        'Uncertain_significance': '意义未明',
-        'Likely_pathogenic': '可能致病',
-        'Pathogenic': '致病',
-        'Unknown': '未知'
-      };
-      
-      const backgroundColorMap = {
-        'Benign': '#2ecc71',
-        'Likely_benign': '#27ae60',
-        'Uncertain_significance': '#3498db',
-        'Likely_pathogenic': '#f39c12',
-        'Pathogenic': '#e74c3c',
-        'Unknown': '#95a5a6'
-      };
-      
-      // 构建数据集
-      const datasets = Object.keys(labelMap).map(key => ({
-        label: labelMap[key],
-        data: sortedChroms.map(c => chromData[c][key] || 0),
-        backgroundColor: backgroundColorMap[key]
-      }));
-      
-      return {
-        labels: sortedChroms,
-        datasets: datasets
+  const chromData = {};
+  
+  this.mergedData.forEach(item => {
+    const chrom = item.variant_info?.chrom || 'Unknown';
+    const label = item.predict_result?.clnsig_pred || 'Unknown';
+    
+    if (!chromData[chrom]) {
+      chromData[chrom] = {
+        Benign: 0,
+        Likely_benign: 0,
+        Uncertain_significance: 0,
+        Likely_pathogenic: 0,
+        Pathogenic: 0,
+        Unknown: 0
       };
     }
+    
+    // 确保只累加存在的类别
+    if (chromData[chrom][label] !== undefined) {
+      chromData[chrom][label] += 1;
+    } else {
+      chromData[chrom]['Unknown'] += 1;
+    }
+  });
+  
+  // 排序染色体
+  const sortedChroms = Object.keys(chromData).sort((a, b) => {
+    const aNum = parseInt(a.replace('chr', '')) || 0;
+    const bNum = parseInt(b.replace('chr', '')) || 0;
+    return aNum - bNum;
+  });
+
+  // 定义标签顺序和颜色映射
+  const labelOrder = [
+    'Pathogenic',
+    'Likely_pathogenic',
+    'Uncertain_significance',
+    'Likely_benign',
+    'Benign',
+    'Unknown'
+  ];
+  
+  const backgroundColorMap = {
+    'Pathogenic': '#e74c3c',
+    'Likely_pathogenic': '#f39c12',
+    'Uncertain_significance': '#3498db',
+    'Likely_benign': '#2ecc71',
+    'Benign': '#27ae60',
+    'Unknown': '#95a5a6'
+  };
+  
+  // 构建数据集
+  const datasets = labelOrder.map(label => ({
+    label: label,
+    data: sortedChroms.map(c => chromData[c][label] || 0),
+    backgroundColor: backgroundColorMap[label]
+  }));
+  
+  return {
+    labels: sortedChroms,
+    datasets: datasets
+  };
+},
   },
-  
 
-
-  
   created() {
     this.fetchResults()
   },
