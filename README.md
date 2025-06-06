@@ -90,17 +90,14 @@ pip install -r requirements.txt
 
 ---
 
-### 3. 启动前端开发服务器（Vue3）
+### 3. 安装前端开发服务器依赖（Vue3）
 
 确保已安装 Node.js 和 npm（推荐 Node.js ≥ 16）：
 
 ```bash
 cd frontend
 npm install
-npm run dev
 ```
-
-浏览器访问显示的地址（如 [http://localhost:5173）即可使用前端界面。](http://localhost:5173）即可使用前端界面。)
 
 ---
 
@@ -169,6 +166,27 @@ bash scripts/install_requirements.sh
 
 * 创建并激活虚拟环境（默认名为 `venv`，在 `scripts/` 目录下）
 * 使用 `requirements.txt` 文件安装所有依赖包
+
+---
+## 运行项目
+
+### 1. 启动后端服务
+
+```bash
+cd bio2502project
+python run.py
+```
+
+### 2. 启动前端开发服务器
+
+```bash
+cd frontend
+npm run dev
+```
+
+### 3. 本地浏览器访问使用
+
+点击前端终端中的链接或在浏览器访问显示的地址（如 [http://localhost:5173）](http://localhost:5173）)
 
 ---
 
