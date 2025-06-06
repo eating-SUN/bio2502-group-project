@@ -501,6 +501,10 @@ class PDFReport(FPDF):
                     # 如果没有数据，显示占位符
                     ax.text(0.5, 0.5, '无临床意义数据', 
                             ha='center', va='center', fontsize=12)
+            elif chart_type == "model_prediction":
+                labels = chart_data.get('labels', [])
+                sizes = chart_data.get('data', [])
+                colors = chart_data.get('colors', [])
             
             elif chart_type == "prs_distribution":
                 # PRS分布图

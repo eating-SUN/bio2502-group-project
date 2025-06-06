@@ -42,7 +42,7 @@
             <!-- 神经网络风险预测 -->
             <div class="mb-4">
               <h4>神经网络预测乳腺癌风险: 
-                <span class="text-primary" data-bs-toggle="tooltip" title="基于机器学习模型对多个变异进行加权评分，预测乳腺癌风险">{{ modelScore }}</span>
+                <span class="text-primary" data-bs-toggle="tooltip" title="基于机器学习模型对多个变异进行加权评分，预测乳腺癌风险概率">{{ modelScore }}%</span>
                 <span class="badge" :class="modelRiskBadgeClass">{{ modelRisk }}</span>
               </h4>
               <p class="text-muted">基于 {{ mergedData.length }} 个变异计算</p>
@@ -112,6 +112,24 @@
                     <th>参考序列</th>
                     <th>变异序列</th>
                     <th>基因型</th>
+                    <th @click="sortBy('predict_label')" class="sortable-header">
+                      <div class="d-flex align-items-center">
+                        <span>模型预测标签</span>
+                        <span class="sort-indicators ms-1">
+                          <i class="bi bi-caret-up-fill" :class="{'text-primary': sortField === 'predict_label' && sortDirection === 'asc'}"></i>
+                          <i class="bi bi-caret-down-fill" :class="{'text-primary': sortField === 'predict_label' && sortDirection === 'desc'}"></i>
+                        </span>
+                      </div>
+                    </th>
+                    <th @click="sortBy('predict_score')" class="sortable-header">
+                      <div class="d-flex align-items-center">
+                        <span>模型预测得分</span>
+                        <span class="sort-indicators ms-1">
+                          <i class="bi bi-caret-up-fill" :class="{'text-primary': sortField === 'predict_score' && sortDirection === 'asc'}"></i>
+                          <i class="bi bi-caret-down-fill" :class="{'text-primary': sortField === 'predict_score' && sortDirection === 'desc'}"></i>
+                        </span>
+                      </div>
+                    </th>
                     <th @click="sortBy('ClinicalSignificance')" class="sortable-header" data-bs-toggle="tooltip" title="ClinVar数据库提供的变异临床意义分类">
                       <div class="d-flex align-items-center">
                         <span>临床意义</span>
@@ -142,6 +160,12 @@
                     <td class="text-monospace">{{ item.variant_info.ref || '-' }}</td>
                     <td class="text-monospace text-danger">{{ item.variant_info.alt || '-' }}</td>
                     <td class="text-monospace">{{ item.variant_info.genotype || '-' }}</td>
+                    <td>
+                      <span class="badge" :class="getPredictClass(item.predict_result?.clnsig_pred)">
+                        {{ item.predict_result?.clnsig_pred || '未评估'}}
+                      </span>
+                    </td>
+                    <td>{{ item.predict_result?.predict_score?.toFixed(4) || '-' }}</td>
                     <td>
                       <span class="badge" :class="getClinicalClass(item.clinvar_data?.ClinicalSignificance)">
                         {{ item.clinvar_data?.ClinicalSignificance || '未评估' }}
@@ -259,14 +283,18 @@
               <!-- 分析结果统计 -->            
               <!-- 图表容器 -->
               <div class="row mt-4">
-                <div class="col-md-6">
+                <div class="col-lg-6 mb-4">
                   <clinvar-chart :chartData="clinvarChartData" />
                 </div>
-                <div class="col-md-6">
-                  <prs-distribution-chart :chartData="prsDistributionChartData" />
+                <div class="col-lg-6 mb-4">
+                  <model-prediction-chart :chartData="modelPredictionChartData" />
                 </div>
-                <div class="col-md-4">
-                  <model-risk-chart :riskLevel="modelRiskLevel" />
+                
+                <div class="col-lg-6 mb-4">
+                  <prs-distribution-chart :chartData="clinvarDistributionByChromosome" />
+                </div>
+                <div class="col-lg-6 mb-4">
+                  <chromosome-prediction-chart :chartData="chromosomePredictionChartData" />
                 </div>
               </div>
             </template>
@@ -296,7 +324,8 @@ import NavBar from '@components/NavBar.vue'
 import Footer from '@components/Footer.vue'
 import ClinvarChart from '@components/ClinvarChart.vue'
 import PrsDistributionChart from '@components/PrsDistributionChart.vue'
-import ModelRiskChart from '@components/ModelRiskChart.vue'
+import ModelPredictionChart from '@components/ModelPredictionChart.vue'
+import ChromosomePredictionChart from '@components/ChromosomePredictionChart.vue'
 import axios from 'axios';
 import { getTaskStatus, getResults } from '@services/api'
 
@@ -306,7 +335,8 @@ export default {
     Footer,
     ClinvarChart,
     PrsDistributionChart,
-    ModelRiskChart
+    ModelPredictionChart,
+    ChromosomePredictionChart
   },
   data() {
     return {
@@ -324,7 +354,6 @@ export default {
       sortField: null,        // 当前排序字段
       sortDirection: 'asc' ,   // 排序方向：asc 或 desc
       modelScore: 0,
-      modelRisk: '未评估',
       modelRiskLevel: 0,
       modelRiskBadgeClass: 'bg-secondary',
     }
@@ -391,41 +420,137 @@ export default {
       const end = start + this.pageSize;
       return sortedData.slice(start, end);
     },
-    clinvarChartData() {
-      // 统计临床意义分布
-      const significanceCount = {
-        'Pathogenic': 0,
-        'Likely pathogenic': 0,
-        'Uncertain significance': 0,
-        'Likely benign': 0,
-        'Benign': 0,
-        'Unknown': 0
-      }
+clinvarChartData() {
+  const clinicalData = this.mergedData.reduce((acc, item) => {
+    const significance = item.clinvar_data?.ClinicalSignificance || 'Unknown';
+    acc[significance] = (acc[significance] || 0) + 1;
+    return acc;
+  }, {});
+
+  const labels = Object.keys(clinicalData);
+  const data = labels.map(label => clinicalData[label]);
+  const backgroundColors = labels.map(label => {
+    switch(label) {
+      case 'Pathogenic': return '#e74c3c';
+      case 'Likely pathogenic': return '#f39c12';
+      case 'Uncertain significance': return '#3498db';
+      case 'Likely benign': return '#2ecc71';
+      case 'Benign': return '#27ae60';
+      default: return '#95a5a6';
+    }
+  });
+
+  return {
+    labels,
+    datasets: [{
+      data,
+      backgroundColor: backgroundColors,
+      borderWidth: 1
+    }]
+  };
+},
+modelPredictionChartData() {
+  const predictionCounts = {
+    'Benign': 0,
+    'Likely_benign': 0,
+    'Uncertain_significance': 0,
+    'Likely_pathogenic': 0,
+    'Pathogenic': 0,
+    'Unknown': 0
+  };
+
+  this.mergedData.forEach(item => {
+    const prediction = item.predict_result?.clnsig_pred || 'Unknown';
+    predictionCounts[prediction]++;
+  });
+
+  const labels = Object.keys(predictionCounts);
+  const data = labels.map(label => predictionCounts[label]);
+  const backgroundColors = labels.map(label => {
+    switch(label) {
+      case 'Pathogenic': return '#e74c3c';
+      case 'Likely_pathogenic': return '#f39c12';
+      case 'Uncertain_significance': return '#3498db';
+      case 'Likely_benign': return '#2ecc71';
+      case 'Benign': return '#27ae60';
+      default: return '#95a5a6';
+    }
+  });
+
+  return {
+    labels,
+    datasets: [{
+      data,
+      backgroundColor: backgroundColors,
+      borderWidth: 1
+    }]
+  };
+},
+    clinvarDistributionByChromosome() {
+      const chromData = {};
       
       this.mergedData.forEach(item => {
-        const significance = item.clinvar_data?.ClinicalSignificance || 'Unknown'
-        if (significance in significanceCount) {
-          significanceCount[significance]++
-        } else {
-          significanceCount['Unknown']++
+        const chrom = item.variant_info?.chrom || 'Unknown';
+        // 获取临床意义，如果没有则为'Unknown'
+        const significance = item.clinvar_data?.ClinicalSignificance || 'Unknown';
+        
+        if (!chromData[chrom]) {
+          // 初始化每种临床意义为0
+          chromData[chrom] = {
+            'Pathogenic': 0,
+            'Likely pathogenic': 0,
+            'Uncertain significance': 0,
+            'Likely benign': 0,
+            'Benign': 0,
+            'Unknown': 0
+          };
         }
-      })
+        
+        // 如果这个临床意义在初始化对象中，则累加，否则加到Unknown
+        if (significance in chromData[chrom]) {
+          chromData[chrom][significance]++;
+        } else {
+          chromData[chrom]['Unknown']++;
+        }
+      });
+      
+      // 排序染色体
+      const sortedChroms = Object.keys(chromData).sort((a, b) => {
+        const aNum = parseInt(a.replace('chr', '')) || 0;
+        const bNum = parseInt(b.replace('chr', '')) || 0;
+        return aNum - bNum;
+      });
+      
+      // 定义临床意义的顺序和颜色
+      const significanceOrder = [
+        'Pathogenic',
+        'Likely pathogenic',
+        'Uncertain significance',
+        'Likely benign',
+        'Benign',
+        'Unknown'
+      ];
+      
+      const backgroundColorMap = {
+        'Pathogenic': '#e74c3c',
+        'Likely pathogenic': '#f39c12',
+        'Uncertain significance': '#3498db',
+        'Likely benign': '#2ecc71',
+        'Benign': '#27ae60',
+        'Unknown': '#95a5a6'
+      };
+      
+      // 构建数据集
+      const datasets = significanceOrder.map(sig => ({
+        label: sig,
+        data: sortedChroms.map(c => chromData[c][sig]),
+        backgroundColor: backgroundColorMap[sig]
+      }));
       
       return {
-        labels: Object.keys(significanceCount),
-        datasets: [{
-          label: '临床意义分布',
-          data: Object.values(significanceCount),
-          backgroundColor: [
-            '#e74c3c', // Pathogenic
-            '#f39c12', // Likely pathogenic
-            '#3498db', // Uncertain significance
-            '#2ecc71', // Likely benign
-            '#27ae60', // Benign
-            '#95a5a6'  // Unknown
-          ]
-        }]
-      }
+        labels: sortedChroms,
+        datasets: datasets
+      };
     },
     // 提取含有蛋白变异的条目
     proteinVariants() {
@@ -436,28 +561,70 @@ export default {
     hasProteinVariants() {
       return this.proteinVariants.length > 0;
     },
-    prsDistributionChartData() {
-      // 按染色体分组统计变异数量
-      const chromosomeCounts = {}
+chromosomePredictionChartData() {
+      const chromData = {};
       
       this.mergedData.forEach(item => {
-        const chrom = item.variant_info?.chrom || 'Unknown'
-        if (!chromosomeCounts[chrom]) {
-          chromosomeCounts[chrom] = 0
+        const chrom = item.variant_info?.chrom || 'Unknown';
+        const label = item.predict_result?.clnsig_pred || 'Unknown';
+        
+        if (!chromData[chrom]) {
+          chromData[chrom] = {
+            Benign: 0,
+            Likely_benign: 0,
+            Uncertain_significance: 0,
+            Likely_pathogenic: 0,
+            Pathogenic: 0,
+            Unknown: 0
+          };
         }
-        chromosomeCounts[chrom]++
-      })
+        
+        chromData[chrom][label] = (chromData[chrom][label] || 0) + 1;
+      });
+      
+      // 排序染色体
+      const sortedChroms = Object.keys(chromData).sort((a, b) => {
+        const aNum = parseInt(a.replace('chr', '')) || 0;
+        const bNum = parseInt(b.replace('chr', '')) || 0;
+        return aNum - bNum;
+      });
+      
+      // 定义标签映射和颜色
+      const labelMap = {
+        'Benign': '良性',
+        'Likely_benign': '可能良性',
+        'Uncertain_significance': '意义未明',
+        'Likely_pathogenic': '可能致病',
+        'Pathogenic': '致病',
+        'Unknown': '未知'
+      };
+      
+      const backgroundColorMap = {
+        'Benign': '#2ecc71',
+        'Likely_benign': '#27ae60',
+        'Uncertain_significance': '#3498db',
+        'Likely_pathogenic': '#f39c12',
+        'Pathogenic': '#e74c3c',
+        'Unknown': '#95a5a6'
+      };
+      
+      // 构建数据集
+      const datasets = Object.keys(labelMap).map(key => ({
+        label: labelMap[key],
+        data: sortedChroms.map(c => chromData[c][key] || 0),
+        backgroundColor: backgroundColorMap[key]
+      }));
       
       return {
-        labels: Object.keys(chromosomeCounts),
-        datasets: [{
-          label: '染色体变异分布',
-          data: Object.values(chromosomeCounts),
-          backgroundColor: '#3498db'
-        }]
-      }
+        labels: sortedChroms,
+        datasets: datasets
+      };
     }
   },
+  
+
+
+  
   created() {
     this.fetchResults()
   },
@@ -547,11 +714,12 @@ export default {
     async fetchTaskResults(taskId) {
       try {
         const response = await getResults(taskId)
+        console.log('Response Data:', response.data)
         this.prsScore = response.data.prsScore
         this.prsRisk = response.data.prsRisk
         this.mergedData = response.data.variants || []
         this.modelScore = (response.data.modelScore * 100).toFixed(2)
-        this.modelRisk = response.data.modelRisk || '未评估'
+        
 
         // 处理蛋白质数据
         this.processProteinData()
@@ -566,20 +734,6 @@ export default {
         } else {
           this.riskBadgeClass = 'bg-secondary'
         }
-        // 设置风险等级徽章样式
-        if (this.modelRisk.includes('低')) {
-          this.modelRiskBadgeClass = 'bg-success'
-          this.modelRiskLevel = 1
-        } else if (this.modelRisk.includes('中等')) {
-          this.modelRiskBadgeClass = 'bg-warning'
-          this.modelRiskLevel = 2
-        } else if (this.modelRisk.includes('高')) {
-          this.modelRiskBadgeClass = 'bg-danger'
-          this.modelRiskLevel = 3
-        } else {
-          this.modelRiskBadgeClass = 'bg-secondary'
-          this.modelRiskLevel = 0
-        }
 
         this.taskStatus = 'completed'
       }catch (error) {
@@ -587,6 +741,22 @@ export default {
         this.taskStatus = 'failed'
         this.errorMessage = '获取任务结果失败'
       }
+    },
+    getPredictClass(label) {
+    if (!label) return 'bg-secondary'
+      
+      if (label.includes('Pathogenic')) {
+        return 'bg-danger'
+      } else if (label.includes('Likely_pathogenic')) {
+        return 'bg-warning'
+      } else if (label.includes('Uncertain_significance')) {
+        return 'bg-info'
+      } else if (label.includes('Likely_benign')) {
+        return 'bg-success'
+      } else if (label.includes('Benign')) {
+        return 'bg-success'
+      }
+      return 'bg-secondary'
     },
     getClinicalClass(significance) {
       if (!significance) return 'bg-secondary'
@@ -612,6 +782,27 @@ export default {
     formatChange(value) {
       if (value === null || value === undefined) return 'N/A'
       return value > 0 ? `+${value}` : value
+    },
+    getRegulomeClass(score) {
+    if (!score || typeof score !== 'object') return 'bg-secondary';
+    
+    // 根据ranking值返回不同颜色
+    const firstChar = score.ranking.charAt(0);
+    if (['1', '2'].includes(firstChar)) return 'bg-danger';
+    if (['3', '4'].includes(firstChar)) return 'bg-warning';
+    if (['5', '6'].includes(firstChar)) return 'bg-success';
+    return 'bg-secondary';
+  },
+  formatRegulomeScore(score) {
+    if (!score) return 'N/A';
+    if (typeof score === 'object') {
+      return `${score.ranking} (${score.probability_score})`;
+    }
+    return score;
+  },
+    // 格式化序列显示（每10个字符加空格）
+    formatSequence(seq) {
+      return seq.replace(/(.{10})/g, '$1 ');
     },
     getLoadingStatusText(status) {
       const statusMap = {
@@ -676,27 +867,7 @@ export default {
     }
   });
 },
-    getRegulomeClass(score) {
-    if (!score || typeof score !== 'object') return 'bg-secondary';
     
-    // 根据ranking值返回不同颜色
-    const firstChar = score.ranking.charAt(0);
-    if (['1', '2'].includes(firstChar)) return 'bg-danger';
-    if (['3', '4'].includes(firstChar)) return 'bg-warning';
-    if (['5', '6'].includes(firstChar)) return 'bg-success';
-    return 'bg-secondary';
-  },
-  formatRegulomeScore(score) {
-    if (!score) return 'N/A';
-    if (typeof score === 'object') {
-      return `${score.ranking} (${score.probability_score})`;
-    }
-    return score;
-  },
-    // 格式化序列显示（每10个字符加空格）
-    formatSequence(seq) {
-      return seq.replace(/(.{10})/g, '$1 ');
-    }
   }
 }
 </script>
