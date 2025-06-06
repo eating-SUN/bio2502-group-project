@@ -2,15 +2,8 @@ import torch
 import time
 import joblib
 
-def train(model, dataloaders, optimizer, loss_fn, device, num_epochs=10, gene_encoder=None, clnsig_encoder=None):
-    """
-    model: PyTorch模型
-    dataloaders: dict，包含 'train' 和 'val' 的 DataLoader
-    optimizer: 优化器
-    loss_fn: 损失函数
-    device: 'cuda'或'cpu'
-    num_epochs: 训练轮数
-    """
+def train(model, dataloaders, optimizer, loss_fn, device, num_epochs=10, gene_encoder=None):
+
     model.to(device)
     
     best_val_loss = float('inf')
@@ -31,33 +24,41 @@ def train(model, dataloaders, optimizer, loss_fn, device, num_epochs=10, gene_en
             
             start_time = time.time()
             
-            for batch in dataloaders[phase]:
-                # 处理输入
-                if len(batch) == 3:
+            for i, batch in enumerate(dataloaders[phase]):
+                if len(batch) == 4:
+                    seqs, genes, masks, labels = batch
+                    seqs, genes, masks, labels = seqs.to(device), genes.to(device), masks.to(device), labels.to(device)
+                elif len(batch) == 3:
                     seqs, genes, labels = batch
-                    seqs = seqs.to(device)
-                    genes = genes.to(device)
-                    labels = labels.to(device)
+                    seqs, genes, labels = seqs.to(device), genes.to(device), labels.to(device)
+                    masks = None
                 else:
                     seqs, labels = batch
-                    seqs = seqs.to(device)
-                    labels = labels.to(device)
-                    genes = None
+                    seqs, labels = seqs.to(device), labels.to(device)
+                    genes = masks = None
                 
                 optimizer.zero_grad()
                 
                 with torch.set_grad_enabled(phase == 'train'):
-                    if genes is not None:
+                    if genes is not None and masks is not None:
+                        outputs = model(seqs, genes, masks)
+                    elif genes is not None:
                         outputs = model(seqs, genes)
                     else:
                         outputs = model(seqs)
                     
-                    loss = loss_fn(outputs, labels)
+                    outputs_clamped = torch.clamp(outputs, 0, 1)
+                    loss = loss_fn(outputs_clamped, labels)
                     
                     if phase == 'train':
                         loss.backward()
                         optimizer.step()
                 
+                # 只在训练阶段，且每print_freq个batch打印一次（包含第0个batch）
+                if phase == 'train' and (i % 400 == 0):
+                    print(f"Train batch {i} outputs mean: {outputs_clamped.mean().item():.4f}, "
+                          f"std: {outputs_clamped.std().item():.4f}, min: {outputs_clamped.min().item():.4f}, max: {outputs_clamped.max().item():.4f}")
+                   
                 running_loss += loss.item() * seqs.size(0)
                 total_samples += seqs.size(0)
             
@@ -83,8 +84,6 @@ def train(model, dataloaders, optimizer, loss_fn, device, num_epochs=10, gene_en
     if gene_encoder is not None:
         joblib.dump(gene_encoder, "predict/model/gene_encoder.pkl")
         print("Gene encoder saved as gene_encoder.pkl")
-    if clnsig_encoder is not None:
-        joblib.dump(clnsig_encoder, "predict/model/clnsig_encoder.pkl")
-        print("Clinical significance encoder saved as clnsig_encoder.pkl")
     
     return val_loss  # 返回验证损失
+

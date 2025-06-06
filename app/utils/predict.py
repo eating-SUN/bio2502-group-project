@@ -51,27 +51,36 @@ def predict_variant(model, gene_encoder, variant):
     chrom = variant['chrom']
     pos = variant['pos']
     seq = extract_region(chrom, pos, window=SEQ_LEN)
+    
     if seq.count('N') / len(seq) > 0.5:
         print(f"[DEBUG] 变异 {variant['id']}：序列 N 比例过高 ({seq.count('N') / len(seq):.2f})")
 
+    # 转换 DNA 序列为张量 (1, L)
     seq_tensor = dna_to_tensor(seq).unsqueeze(0).to(DEVICE)
 
-    gene = variant.get('gene')
+    # 构建 variant mask（只有变异位点为1，其余为0）
+    mask = torch.zeros(SEQ_LEN, dtype=torch.float32)
+    center_pos = SEQ_LEN // 2  # 变异位于序列中心
+    mask[center_pos] = 1.0
+    mask_tensor = mask.unsqueeze(0).to(DEVICE)  # (1, L)
 
+    # 编码 gene
+    gene = variant.get('gene')
     if model.use_gene:
         if gene_encoder and isinstance(gene, str) and gene in gene_encoder.classes_:
             gene_idx = gene_encoder.transform([gene])[0]
         else:
             gene_idx = 0  # 未知基因编码为 0
         gene_tensor = torch.tensor([gene_idx], dtype=torch.long).to(DEVICE)
-        output = model(seq_tensor, gene_tensor)
+        output = model(seq_tensor, gene_tensor, mask_tensor)
     else:
-        output = model(seq_tensor)
+        output = model(seq_tensor, variant_mask=mask_tensor)
 
-    score = torch.sigmoid(output).item()
-    # 分类标签：选择最接近的 CLNSIG
+    # 模型已经输出 [0, 1] 范围内的回归值，无需再 sigmoid
+    score = output.item()
+
+    # 映射到临床标签
     closest_label = min(CLNSIG_SCORE.items(), key=lambda x: abs(score - x[1]))[0]
-
     print(f"[DEBUG] 变异 {variant['id']} 预测得分: {score:.4f} 预测标签: {closest_label}")
     return score, closest_label
 
