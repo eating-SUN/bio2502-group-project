@@ -36,7 +36,7 @@ export default {
           maintainAspectRatio: false,
           plugins: {
             legend: {
-              position: 'right',
+              position: 'bottom',
               labels: {
                 padding: 15,
                 font: {

@@ -42,7 +42,7 @@ def process_variants(task_id, variants, tasks, file_path=None):
                 if clinvar:
                     rsid = clinvar.get('ID')
                     chrom = clinvar.get('Chromosome')
-                    pos = clinvar.get('Pos')
+                    pos = clinvar.get('Start')
                     pos_info = {}
                     if rsid and rsid != 'NA':
                         pos_info['rsid'] = rsid
