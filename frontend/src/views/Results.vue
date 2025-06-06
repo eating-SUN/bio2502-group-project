@@ -33,20 +33,66 @@
             
             <!-- PRS评分 -->
             <div class="mb-4">
-              <h4>乳腺癌PRS评分: 
-                <span class="text-primary" data-bs-toggle="tooltip" title="多基因风险评分（Polygenic Risk Score）是一种基于多个遗传变异来评估个体患病风险的方法">{{ prsScore }}</span>
+              <h4 data-bs-toggle="tooltip" title="多基因风险评分（Polygenic Risk Score）是一种基于多个遗传变异来评估个体患病风险的方法">乳腺癌PRS评分: 
+                <span class="text-primary" >{{ prsScore }}</span>
                 <span class="badge" :class="riskBadgeClass">{{ prsRisk }}</span>
               </h4>
               <p class="text-muted">基于 {{ mergedData.length }} 个变异计算</p>
             </div>
             <!-- 神经网络风险预测 -->
             <div class="mb-4">
-              <h4>神经网络预测乳腺癌风险: 
-                <span class="text-primary" data-bs-toggle="tooltip" title="基于机器学习模型对多个变异进行加权评分，预测乳腺癌风险概率">{{ modelScore }}%</span>
-                <span class="badge" :class="modelRiskBadgeClass">{{ modelRisk }}</span>
+              <h4 data-bs-toggle="tooltip" title="基于机器学习模型对多个变异进行加权评分，预测乳腺癌患病风险">神经网络预测乳腺癌风险: 
+                <span class="text-primary">{{ modelScore }}</span>
+                <span class="badge" :class="getModelRiskBadgeClass">{{ modelRiskText }}</span>
               </h4>
               <p class="text-muted">基于 {{ mergedData.length }} 个变异计算</p>
-            </div>
+              <div class="card mt-3 bg-light border-secondary">
+    <div class="card-body">
+      <h6 class="card-title">分数意义说明</h6>
+      <table class="table table-bordered table-sm">
+        <thead>
+          <tr>
+            <th>分数范围</th>
+            <th>描述</th>
+            
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            
+            <td>0.00 - 0.05</td>
+            <td>几乎无风险</td>
+          </tr>
+          <tr>
+            
+            <td>0.05 - 0.25</td>
+            <td>风险低</td>
+            
+          </tr>
+          <tr>
+            
+            <td>0.25 - 0.70</td>
+            <td>风险较低，需进一步观察</td>
+            
+          </tr>
+          <tr>
+
+            <td>0.70 - 1.00</td>
+            <td>高风险</td>
+            
+          </tr>
+          <tr>
+ 
+            <td>1.00</td>
+            <td>极高风险</td>
+            
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+            
 
             <!-- 分页控制 -->
             <div class="row mb-3" v-if="mergedData.length > 0">
@@ -420,6 +466,20 @@ export default {
       const end = start + this.pageSize;
       return sortedData.slice(start, end);
     },
+    getModelRiskBadgeClass() {
+    if (this.modelScore === 1.0) return 'bg-danger';
+    if (this.modelScore >= 0.7) return 'bg-warning';
+    if (this.modelScore >= 0.25) return 'bg-info';
+    if (this.modelScore >= 0.05) return 'bg-success';
+    return 'bg-secondary';
+  },
+  modelRiskText() {
+    if (this.modelScore === 1.0) return '极高风险';
+    if (this.modelScore >= 0.7) return '高风险';
+    if (this.modelScore >= 0.25) return '不确定';
+    if (this.modelScore >= 0.05) return '低风险';
+    return '无风险';
+  },
 clinvarChartData() {
   const clinicalData = this.mergedData.reduce((acc, item) => {
     const significance = item.clinvar_data?.ClinicalSignificance || 'Unknown';
@@ -720,7 +780,7 @@ chromosomePredictionChartData() {
         this.prsScore = response.data.prsScore
         this.prsRisk = response.data.prsRisk
         this.mergedData = response.data.variants || []
-        this.modelScore = (response.data.modelScore * 100).toFixed(2)
+        this.modelScore = response.data.modelScore.toFixed(4)
         
 
         // 处理蛋白质数据
