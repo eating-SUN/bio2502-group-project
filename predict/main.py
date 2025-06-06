@@ -9,7 +9,7 @@ from model.train import train
 TRAIN_CONFIG = {
     'batch_size': 32,
     'learning_rate': 1e-3,
-    'num_epochs': 100,
+    'num_epochs': 70,
     'device': 'cuda' if torch.cuda.is_available() else 'cpu',
 }
 

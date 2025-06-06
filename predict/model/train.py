@@ -37,9 +37,22 @@ def train(model, dataloaders, optimizer, loss_fn, device, num_epochs=10, gene_en
                     seqs, labels = seqs.to(device), labels.to(device)
                     genes = masks = None
 
-                # 训练时给标签加噪声，增强泛化
-                labels = labels + torch.randn_like(labels) * 0.05
-                labels = labels.clamp(0, 1)
+                # 过滤掉标签为 0.5 的样本（Uncertain_significance）
+                valid_mask = (labels != 0.5)
+                if valid_mask.sum() == 0:
+                    continue  # 本 batch 全是 uncertain，跳过
+
+                seqs = seqs[valid_mask]
+                labels = labels[valid_mask]
+                if genes is not None:
+                    genes = genes[valid_mask]
+                if masks is not None:
+                    masks = masks[valid_mask]
+
+                # 标签加噪声（只用于训练增强）
+                if phase == 'train':
+                    labels = labels + torch.randn_like(labels) * 0.05
+                    labels = labels.clamp(0, 1)
                 
                 optimizer.zero_grad()
                 
