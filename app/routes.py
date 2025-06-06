@@ -248,9 +248,33 @@ def generate_report():
         
         # 添加详细变异表格
         if variants:
+            # === 添加排序逻辑 ===
+            # 定义致病性排序权重
+            pathogenicity_order = {
+                'Pathogenic': 0,
+                'Likely_pathogenic': 1,
+                'Uncertain_significance': 2,
+                'Likely_benign': 3,
+                'Benign': 4,
+                'Unknown': 5
+            }
+            
+            # 按致病性从高到低排序（权重值小的在前）
+            # 相同致病性等级时按预测得分从高到低排序
+            variants_sorted = sorted(
+                variants,
+                key=lambda v: (
+                    pathogenicity_order.get(
+                        v.get('predict_result', {}).get('clnsig_pred', 'Unknown'),
+                        5  # 默认未知放在最后
+                    ),
+                    -v.get('predict_result', {}).get('predict_score', 0)  # 负号实现降序
+                )
+            )
+            # === 结束排序逻辑 ===
             headers = ["变异ID", "参考序列", "变异序列", "临床意义","基因", "模型预测标签", "模型预测得分", "RegulomeDB分数"]
             rows = []
-            for v in variants[:30]:  # 只显示前15个
+            for v in variants_sorted[:30]:  # 只显示前15个
                 var_info = v.get('variant_info', {})
                 clinvar_data = v.get('clinvar_data', {})
                 regulome_score = v.get('regulome_score', {})
@@ -284,7 +308,7 @@ def generate_report():
                     f"{predict_score:.4f}" if predict_score else 'N/A',  # 模型预测得分
                     regulome_text
                 ])
-            pdf.add_table("变异列表 (前30个)", headers, rows)
+            pdf.add_table("变异列表 (按照模型预测致病性排序，展示前30个)", headers, rows)
         
         # 添加蛋白质变异信息
         protein_variants = [v for v in variants if v.get('protein_info')]
