@@ -123,29 +123,45 @@ def dna_to_tensor(sequence):
     return torch.tensor(indices, dtype=torch.long)
 
 
+def get_variant_mask(pos, chrom_seq_start, window=MAX_SEQ_LENGTH):
+    """根据变异位置计算在序列中的索引位置"""
+    center = chrom_seq_start + window // 2
+    variant_idx = window // 2  # 默认中心位置
+    mask = torch.zeros(window, dtype=torch.float32)
+    if 0 <= variant_idx < window:
+        mask[variant_idx] = 1.0
+    return mask
+
+
 # 自定义数据集类
 class VariantDataset(Dataset):
-    def __init__(self, dataframe, use_gene_encoding=False):
+    def __init__(self, dataframe, use_gene_encoding=False, use_mask=False):
         self.data = dataframe.reset_index(drop=True)
-        self.use_gene_encoding = use_gene_encoding
+        self.use_gene = use_gene_encoding
+        self.use_mask = use_mask
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
         row = self.data.iloc[idx]
-        
-        # 提取DNA序列，返回编码序列tensor
-        seq_str = extract_region(row['chrom'], row['pos'], window=MAX_SEQ_LENGTH)
-        seq_tensor = dna_to_tensor(seq_str)  # 你的dna_to_tensor函数，将序列转为索引张量，长度固定
-        
-        # 准备标签score（浮点数）
-        label = torch.tensor(row['score'], dtype=torch.float)
-        
-        if self.use_gene_encoding and 'gene_encoded' in self.data.columns:
-            gene_feat = torch.tensor(row['gene_encoded'], dtype=torch.long)
-            return seq_tensor, gene_feat, label
-        else:
-            return seq_tensor, label
-        
+        seq = dna_to_tensor(row['genomic_region'])
+        score = torch.tensor(row['score'], dtype=torch.float32)
 
+        # 默认占位
+        gene_id = None
+        variant_mask = None
+
+        if self.use_gene:
+            gene_id = torch.tensor(int(row['gene_encoded']), dtype=torch.long)
+        
+        if self.use_mask:
+            variant_mask = get_variant_mask(row['pos'], row['pos'] - MAX_SEQ_LENGTH // 2)
+
+        # 返回 tuple，顺序固定：
+        if gene_id is not None and variant_mask is not None:
+            return seq, gene_id, variant_mask, score
+        elif gene_id is not None:
+            return seq, gene_id, score
+        else:
+            return seq, score

@@ -82,7 +82,7 @@ bash scripts/install_vep.sh
 
 ---
 
-## 🤝 缓存和参考基因组下载
+## 缓存和参考基因组下载
 
 如需使用 HGVS 表达式或支持离线注释，请按下列步骤下载附加资源。
 
@@ -94,13 +94,13 @@ curl -O ftp://ftp.ensembl.org/pub/release-114/variation/indexed_vep_cache/homo_s
 tar -xzf homo_sapiens_vep_114_GRCh38.tar.gz -C ~/.vep
 ```
 
-（推荐：）使用 aria2 加速下载：
+（推荐）使用 aria2 加速下载：
 
 ```bash
 aria2c -s 16 -x 16 "ftp://ftp.ensembl.org/pub/release-114/variation/indexed_vep_cache/homo_sapiens_vep_114_GRCh38.tar.gz"
 ```
 
----
+
 
 ### 2. 下载参考基因组 FASTA （GRCh38）
 
@@ -134,9 +134,10 @@ bash scripts/install_requirements.sh
 
 ## 测试数据演示
 为了方便用户快速体验功能，项目内提供了测试数据：
-test_files/test_samples.vcf — 示例 VCF 文件
-test_files/test_rsid.txt — 示例单个变异 rsID 列表
-可以在网页上上传该文件进行测试。
+ * test_files/test_samples.vcf — 示例 VCF 文件
+ * test_files/test_rsid.txt — 示例单个变异 rsID 列表
+
+你可以在网页上上传该文件进行测试。
 
 
 ## 项目贡献
