@@ -2,7 +2,7 @@
 data/clinvar/*
 data/prs/*
 data/regulome/*
-test_files/HG00096.pindel.illumina_high_coverage.20190831.sites.vcf
+test_files/dev_test/*
 
 # 忽略 VEP 缓存目录
 .vep/
