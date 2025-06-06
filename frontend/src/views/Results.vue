@@ -432,9 +432,9 @@ clinvarChartData() {
   const backgroundColors = labels.map(label => {
     switch(label) {
       case 'Pathogenic': return '#e74c3c';
-      case 'Likely pathogenic': return '#f39c12';
-      case 'Uncertain significance': return '#3498db';
-      case 'Likely benign': return '#2ecc71';
+      case 'Likely_pathogenic': return '#f39c12';
+      case 'Uncertain_significance': return '#3498db';
+      case 'Likely_benign': return '#2ecc71';
       case 'Benign': return '#27ae60';
       default: return '#95a5a6';
     }
@@ -498,9 +498,9 @@ modelPredictionChartData() {
           // 初始化每种临床意义为0
           chromData[chrom] = {
             'Pathogenic': 0,
-            'Likely pathogenic': 0,
-            'Uncertain significance': 0,
-            'Likely benign': 0,
+            'Likely_pathogenic': 0,
+            'Uncertain_significance': 0,
+            'Likely_benign': 0,
             'Benign': 0,
             'Unknown': 0
           };
@@ -524,18 +524,18 @@ modelPredictionChartData() {
       // 定义临床意义的顺序和颜色
       const significanceOrder = [
         'Pathogenic',
-        'Likely pathogenic',
-        'Uncertain significance',
-        'Likely benign',
+        'Likely_pathogenic',
+        'Uncertain_significance',
+        'Likely_benign',
         'Benign',
         'Unknown'
       ];
       
       const backgroundColorMap = {
         'Pathogenic': '#e74c3c',
-        'Likely pathogenic': '#f39c12',
-        'Uncertain significance': '#3498db',
-        'Likely benign': '#2ecc71',
+        'Likely_pathogenic': '#f39c12',
+        'Uncertain_significance': '#3498db',
+        'Likely_benign': '#2ecc71',
         'Benign': '#27ae60',
         'Unknown': '#95a5a6'
       };
