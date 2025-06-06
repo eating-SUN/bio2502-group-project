@@ -132,12 +132,10 @@ def process_rsid(rsid):
         if not variant:
             raise ValueError(f"ClinVar 查询失败，未找到 rsID: {rsid}")
 
-        clinvar = variant.get("clinvar", {})
-        chrom = clinvar.get("Chromosome")
-        pos = clinvar.get("Start")
-        ref = clinvar.get("Ref")
-        alt = clinvar.get("Alt")
-
+        chrom = variant.get("Chromosome")
+        pos = variant.get("Pos")
+        ref = variant.get("Ref")
+        alt = variant.get("Alt")
 
         if not all([chrom, pos, ref, alt]):
             print(f"ClinVar 信息不完整: {variant}")

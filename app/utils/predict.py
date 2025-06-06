@@ -81,7 +81,7 @@ def predict_variant(model, gene_encoder, variant):
 
     # 映射到临床标签
     closest_label = min(CLNSIG_SCORE.items(), key=lambda x: abs(score - x[1]))[0]
-    print(f"[DEBUG] 变异 {variant['id']} 预测得分: {score:.4f} 预测标签: {closest_label}")
+    # print(f"[DEBUG] 变异 {variant['id']} 预测得分: {score:.4f} 预测标签: {closest_label}")
     return score, closest_label
 
 

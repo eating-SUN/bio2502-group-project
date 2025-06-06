@@ -1,20 +1,29 @@
 import sqlite3
+import re
 
 def normalize_variant_id(variant_id):
     """
     标准化 variant_id 为统一查询格式：
-    - rsID → 去掉 rs 前缀
-    - chrom:pos → 去掉 chr 前缀，确保 pos 是整数
+    - rsID: 返回 ('rs', rs号数字)
+    - 染色体位置: 返回 ('loc', (chrom, pos))
+    - 其他: 返回 ('unknown', 原始值)
     """
-    if variant_id.startswith('rs'):
-        return 'rs', variant_id[2:]
-    elif ':' in variant_id:
+    variant_id = variant_id.strip()
+
+    if ':' in variant_id:
         chrom, pos = variant_id.split(':')
-        if chrom.startswith('chr'):
-            chrom = chrom[3:]
+        chrom = chrom.lower().replace('chr', '')
         return 'loc', (chrom, int(pos))
+    
+    elif variant_id.lower().startswith('rs'):
+        return 'rs', variant_id[2:]  # 去掉 rs
+    
+    elif variant_id.isdigit():
+        return 'rs', variant_id  # 纯数字，也识别为 rsID
+    
     else:
         return 'unknown', variant_id
+
 
 def query_clinvar(variant_id, db_path, db_type='primary'):
     """
@@ -57,6 +66,7 @@ def query_clinvar(variant_id, db_path, db_type='primary'):
 
         elif db_type == 'secondary':
             if id_type == 'rs':
+                
                 cursor.execute("SELECT * FROM clinvar WHERE rsid = ?", (f'rs{parsed}',))
             elif id_type == 'loc':
                 chrom, pos = parsed
@@ -99,7 +109,7 @@ def query_with_fallback(variant_id):
 
         result = query_clinvar(variant_id, db_path="data/clinvar/variant_summary.db", db_type='secondary')
         if result:
-            result['Note'] = '来自次级数据库，准确性较低'
+            result['Note'] = '来自次级数据库'
             return result
 
     except Exception as e:

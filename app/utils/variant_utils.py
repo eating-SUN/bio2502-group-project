@@ -42,7 +42,7 @@ def process_variants(task_id, variants, tasks, file_path=None):
                 if clinvar:
                     rsid = clinvar.get('ID')
                     chrom = clinvar.get('Chromosome')
-                    pos = clinvar.get('Start')
+                    pos = clinvar.get('Pos')
                     pos_info = {}
                     if rsid and rsid != 'NA':
                         pos_info['rsid'] = rsid
@@ -68,14 +68,17 @@ def process_variants(task_id, variants, tasks, file_path=None):
         tasks[task_id]['progress'] = 30
 
         # step3: 计算蛋白质特征
+        protein_match_count = 0
+        protein_no_match_count = 0
         print(f"[INFO][{task_id}] 开始蛋白质理化性质计算")
         print(f"[DEBUG][{task_id}] variants 结构示例: {variants[0].keys()}")
         for idx, v in enumerate(variants):
             try:
-                print(f"[DEBUG][{task_id}] 处理第 {idx+1} 个变异")
                 protein = v.get('protein_info')
-                if not protein:
-                    print(f"[DEBUG][{task_id}] protein_info 不存在，跳过")
+                if protein:
+                    protein_match_count += 1
+                else:
+                    protein_no_match_count += 1
                     continue
 
                 wt_seq = protein.get('wt_seq')
@@ -97,12 +100,12 @@ def process_variants(task_id, variants, tasks, file_path=None):
                 else:
                     protein_features = bio_features.calculate_protein_features(wt_seq_clean, mut_seq_clean)
                     v['protein_features'] = protein_features
-                    print(f"[INFO][{task_id}] 成功计算第 {idx+1} 个蛋白质特征")
 
             except Exception as e:
                 print(f"[WARNING][{task_id}] 第 {idx+1} 个蛋白质特征计算失败: {e}")
                 traceback.print_exc()
 
+        print(f"[INFO][{task_id}] 蛋白质理化性质计算完成，匹配成功: {protein_match_count}，未匹配: {protein_no_match_count}")
         tasks[task_id]['progress'] = 50
 
         # step4: 计算 PRS 风险评分
