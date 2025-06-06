@@ -439,18 +439,37 @@ export default {
             case 'ClinicalSignificance':
               valueA = a.clinvar_data?.ClinicalSignificance || '';
               valueB = b.clinvar_data?.ClinicalSignificance || '';
-              break;
+              // 使用致病性权重排序
+              return this.sortDirection === 'asc' 
+                ? this.getPathogenicityWeight(valueA) - this.getPathogenicityWeight(valueB)
+                : this.getPathogenicityWeight(valueB) - this.getPathogenicityWeight(valueA);
+            case 'predict_label':
+              valueA = a.predict_result?.clnsig_pred || '';
+              valueB = b.predict_result?.clnsig_pred || '';
+              // 使用致病性权重排序
+              return this.sortDirection === 'asc' 
+                ? this.getPathogenicityWeight(valueA) - this.getPathogenicityWeight(valueB)
+                : this.getPathogenicityWeight(valueB) - this.getPathogenicityWeight(valueA);
+            case 'predict_score':
+              valueA = a.predict_result?.predict_score || 0;
+              valueB = b.predict_result?.predict_score || 0;
+              // 按数值排序
+              return this.sortDirection === 'asc' 
+                ? valueA - valueB
+                : valueB - valueA;
             case 'regulome_score':
-              // 处理regulome_score对象排序
-              valueA = a.regulome_score ? a.regulome_score.ranking : '';
-              valueB = b.regulome_score ? b.regulome_score.ranking : '';
-              break;
+              // 使用RegulomeDB分数权重排序
+              valueA = this.getRegulomeWeight(a.regulome_score);
+              valueB = this.getRegulomeWeight(b.regulome_score);
+              return this.sortDirection === 'asc' 
+                ? valueA - valueB
+                : valueB - valueA;
             default:
               valueA = '';
               valueB = '';
           }
           
-          // 比较值
+          // 比较值（仅适用于非特殊字段）
           if (valueA < valueB) {
             return this.sortDirection === 'asc' ? -1 : 1;
           }
@@ -492,9 +511,9 @@ clinvarChartData() {
   const backgroundColors = labels.map(label => {
     switch(label) {
       case 'Pathogenic': return '#e74c3c';
-      case 'Likely_pathogenic': return '#f39c12';
-      case 'Uncertain_significance': return '#3498db';
-      case 'Likely_benign': return '#2ecc71';
+      case 'Likely pathogenic': return '#f39c12';
+      case 'Uncertain significance': return '#3498db';
+      case 'Likely benign': return '#2ecc71';
       case 'Benign': return '#27ae60';
       default: return '#95a5a6';
     }
@@ -558,9 +577,9 @@ modelPredictionChartData() {
           // 初始化每种临床意义为0
           chromData[chrom] = {
             'Pathogenic': 0,
-            'Likely_pathogenic': 0,
-            'Uncertain_significance': 0,
-            'Likely_benign': 0,
+            'Likely pathogenic': 0,
+            'Uncertain significance': 0,
+            'Likely benign': 0,
             'Benign': 0,
             'Unknown': 0
           };
@@ -584,18 +603,18 @@ modelPredictionChartData() {
       // 定义临床意义的顺序和颜色
       const significanceOrder = [
         'Pathogenic',
-        'Likely_pathogenic',
-        'Uncertain_significance',
-        'Likely_benign',
+        'Likely pathogenic',
+        'Uncertain significance',
+        'Likely benign',
         'Benign',
         'Unknown'
       ];
       
       const backgroundColorMap = {
         'Pathogenic': '#e74c3c',
-        'Likely_pathogenic': '#f39c12',
-        'Uncertain_significance': '#3498db',
-        'Likely_benign': '#2ecc71',
+        'Likely pathogenic': '#f39c12',
+        'Uncertain significance': '#3498db',
+        'Likely benign': '#2ecc71',
         'Benign': '#27ae60',
         'Unknown': '#95a5a6'
       };
@@ -723,7 +742,34 @@ chromosomePredictionChartData() {
       // 转换为数字
       return parseInt(numPart) || 0;
     },
-    
+    getPathogenicityWeight(value) {
+      // 定义致病性排序权重
+      const pathogenicityOrder = {
+        'Pathogenic': 0,
+        'Likely_pathogenic': 1,
+        'Likely pathogenic': 1, // 临床意义使用空格
+        'Uncertain_significance': 2,
+        'Uncertain significance': 2, // 临床意义使用空格
+        'Likely_benign': 3,
+        'Likely benign': 3, // 临床意义使用空格
+        'Benign': 4,
+        'Unknown': 5,
+        '未评估': 5,
+        '': 5
+      };
+      
+      return pathogenicityOrder[value] || 5;
+    },
+    getRegulomeWeight(score) {
+      if (!score || typeof score !== 'object') return 6;
+      
+      // 提取第一个字符作为主要分数
+      const firstChar = score.ranking.charAt(0);
+      if (['1', '2'].includes(firstChar)) return 0;
+      if (['3', '4'].includes(firstChar)) return 1;
+      if (['5', '6'].includes(firstChar)) return 2;
+      return 3;
+    },
     async fetchResults() {
       const taskId = this.$route.query.task_id
       if (!taskId) {

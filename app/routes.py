@@ -22,7 +22,9 @@ tasks = {}
 # 在 Flask 后端添加 API 路由
 @main.route('/api/upload', methods=['POST'])
 def upload_file_api():
+    print("[DEBUG] 接收到上传请求")  # 添加调试日志
     if 'file' not in request.files:
+        print("[DEBUG] 请求中没有文件部分")
         return jsonify({'error': 'No file part'}), 400
     
     file = request.files['file']
@@ -246,9 +248,33 @@ def generate_report():
         
         # 添加详细变异表格
         if variants:
+            # === 添加排序逻辑 ===
+            # 定义致病性排序权重
+            pathogenicity_order = {
+                'Pathogenic': 0,
+                'Likely_pathogenic': 1,
+                'Uncertain_significance': 2,
+                'Likely_benign': 3,
+                'Benign': 4,
+                'Unknown': 5
+            }
+            
+            # 按致病性从高到低排序（权重值小的在前）
+            # 相同致病性等级时按预测得分从高到低排序
+            variants_sorted = sorted(
+                variants,
+                key=lambda v: (
+                    pathogenicity_order.get(
+                        v.get('predict_result', {}).get('clnsig_pred', 'Unknown'),
+                        5  # 默认未知放在最后
+                    ),
+                    -v.get('predict_result', {}).get('predict_score', 0)  # 负号实现降序
+                )
+            )
+            # === 结束排序逻辑 ===
             headers = ["变异ID", "参考序列", "变异序列", "临床意义","基因", "模型预测标签", "模型预测得分", "RegulomeDB分数"]
             rows = []
-            for v in variants[:15]:  # 只显示前15个
+            for v in variants_sorted[:30]:  # 只显示前15个
                 var_info = v.get('variant_info', {})
                 clinvar_data = v.get('clinvar_data', {})
                 regulome_score = v.get('regulome_score', {})
@@ -282,14 +308,14 @@ def generate_report():
                     f"{predict_score:.4f}" if predict_score else 'N/A',  # 模型预测得分
                     regulome_text
                 ])
-            pdf.add_table("变异列表 (前15个)", headers, rows)
+            pdf.add_table("变异列表 (按照模型预测致病性排序，展示前30个)", headers, rows)
         
         # 添加蛋白质变异信息
         protein_variants = [v for v in variants if v.get('protein_info')]
         if protein_variants:
             pdf.add_section("蛋白质变异信息", [f"共发现 {len(protein_variants)} 个影响蛋白质功能的变异"])
-            # 只展示前3个蛋白质变异
-            for idx, variant in enumerate(protein_variants[:3]):
+            # 只展示前5个蛋白质变异
+            for idx, variant in enumerate(protein_variants[:5]):
                 protein_info = variant.get('protein_info', {})
                 # 确保有足够的序列信息
                 if 'wt_seq' not in protein_info:
@@ -508,17 +534,11 @@ def generate_report():
             except Exception as e:
                 print(f"删除临时文件失败: {e}")
 
-
-# 添加前端路由 fallback
-@main.route('/', defaults={'path': ''})
-@main.route('/<path:path>')
-def catch_all(path):
+@main.route('/')
+def index():
     return render_template('index.html')
 
-# 添加静态文件路由
-@main.route('/static/<path:filename>')
-def static_files(filename):
-    return send_from_directory('../static', filename)
+
 
 # 确保上传目录可访问
 @main.route('/uploads/<path:filename>')
