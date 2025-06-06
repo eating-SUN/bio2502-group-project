@@ -54,10 +54,7 @@ def main():
         pin_memory=True
     )
 
-    dataloaders = {
-        'train': train_loader,
-        'val': val_loader
-    }
+    dataloaders = {'train': train_loader, 'val': val_loader}
 
     # 6. 初始化模型，注意传入gene类别数和是否使用mask
     model = VariantClassifier(gene_num_classes=len(gene_encoder.classes_))

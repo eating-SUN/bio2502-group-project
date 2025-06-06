@@ -21,12 +21,11 @@ class VariantClassifier(nn.Module):
         else:
             self.gene_embedding = None
 
-        self.use_mask = True  # 强制模型启用 variant_mask 支持
+        self.use_mask = True  # 启用 variant_mask 支持
 
-        # 如果启用 variant_mask，则拼接 masked 特征（增加维度）
         self.conv_out_dim = self._get_conv_output(seq_len)
         if self.use_mask:
-            self.conv_out_dim += 64  # 加上 masked 特征（池化后得到一个64维向量）
+            self.conv_out_dim += 64  # 额外的 masked 区域聚合向量
 
         fc_input_dim = self.conv_out_dim
         if self.use_gene:
@@ -36,31 +35,30 @@ class VariantClassifier(nn.Module):
         self.bn3 = nn.BatchNorm1d(128)
         self.dropout1 = nn.Dropout(p=0.5)
         self.fc2 = nn.Linear(128, 1)
+        self.sigmoid = nn.Sigmoid()
         self.dropout2 = nn.Dropout(p=0.5)
 
     def _get_conv_output(self, seq_len):
-        x = torch.zeros(1, seq_len).long()
-        x = self.seq_embedding(x).permute(0, 2, 1)
-        x = F.relu(self.bn1(self.conv1(x)))
-        x = self.pool(x)
-        x = F.relu(self.bn2(self.conv2(x)))
-        x = self.pool(x)
-        return x.view(1, -1).size(1)
+        with torch.no_grad():
+            x = torch.zeros(1, seq_len).long()
+            x = self.seq_embedding(x).permute(0, 2, 1)
+            x = F.relu(self.bn1(self.conv1(x)))
+            x = self.pool(x)
+            x = F.relu(self.bn2(self.conv2(x)))
+            x = self.pool(x)
+            return x.view(1, -1).size(1)
 
     def forward(self, seq, gene=None, variant_mask=None):
         x = self.seq_embedding(seq).permute(0, 2, 1)
         x = F.relu(self.bn1(self.conv1(x)))
-        x = self.pool(x)  # 第一次池化
+        x = self.pool(x)
         x = F.relu(self.bn2(self.conv2(x)))
-        x = self.pool(x)  # 第二次池化
+        x = self.pool(x)
 
         if variant_mask is not None:
-            # variant_mask: (B, L) -> (B, 1, L)
             mask = variant_mask.unsqueeze(1).float()
-            # 对mask做两次池化，保证长度和x匹配
-            mask = self.pool(mask)  # 第一次池化
-            mask = self.pool(mask)  # 第二次池化
-            # 与x相乘
+            mask = self.pool(mask)
+            mask = self.pool(mask)
             masked_feature = (x * mask).sum(dim=2)  # (B, C)
             x = x.view(x.size(0), -1)
             x = torch.cat([x, masked_feature], dim=1)
@@ -73,6 +71,5 @@ class VariantClassifier(nn.Module):
 
         x = F.relu(self.bn3(self.fc1(x)))
         x = self.dropout1(x)
-        x = F.relu(self.fc2(x))
-        x = self.dropout2(x)
-        return x.squeeze(1)
+        x = self.fc2(x)              
+        return x.squeeze(1)                      

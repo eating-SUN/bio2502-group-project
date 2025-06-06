@@ -36,6 +36,10 @@ def train(model, dataloaders, optimizer, loss_fn, device, num_epochs=10, gene_en
                     seqs, labels = batch
                     seqs, labels = seqs.to(device), labels.to(device)
                     genes = masks = None
+
+                # 训练时给标签加噪声，增强泛化
+                labels = labels + torch.randn_like(labels) * 0.05
+                labels = labels.clamp(0, 1)
                 
                 optimizer.zero_grad()
                 
@@ -47,18 +51,17 @@ def train(model, dataloaders, optimizer, loss_fn, device, num_epochs=10, gene_en
                     else:
                         outputs = model(seqs)
                     
-                    outputs_clamped = torch.clamp(outputs, 0, 1)
-                    loss = loss_fn(outputs_clamped, labels)
+                    loss = loss_fn(outputs, labels)
                     
                     if phase == 'train':
                         loss.backward()
                         optimizer.step()
-                
-                # 只在训练阶段，且每print_freq个batch打印一次（包含第0个batch）
+
                 if phase == 'train' and (i % 400 == 0):
-                    print(f"Train batch {i} outputs mean: {outputs_clamped.mean().item():.4f}, "
-                          f"std: {outputs_clamped.std().item():.4f}, min: {outputs_clamped.min().item():.4f}, max: {outputs_clamped.max().item():.4f}")
-                   
+                    print(f"Train batch {i} outputs: "
+                          f"mean={outputs.mean():.4f}, std={outputs.std():.4f}, "
+                          f"min={outputs.min():.4f}, max={outputs.max():.4f}")
+
                 running_loss += loss.item() * seqs.size(0)
                 total_samples += seqs.size(0)
             
@@ -80,7 +83,7 @@ def train(model, dataloaders, optimizer, loss_fn, device, num_epochs=10, gene_en
     
     print("Training complete. Best val loss: {:.4f}".format(best_val_loss))
 
-    # 训练结束后保存编码器（如果有）
+    # 训练结束后保存编码器
     if gene_encoder is not None:
         joblib.dump(gene_encoder, "predict/model/gene_encoder.pkl")
         print("Gene encoder saved as gene_encoder.pkl")

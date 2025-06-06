@@ -16,7 +16,7 @@ def process_variants(task_id, variants, tasks, file_path=None):
             try:
                 if 'variant_info' in v:
                     rsid = v['variant_info']['id']
-                    result = clinvar_query.query_clinvar(rsid)
+                    result = clinvar_query.query_with_fallback(rsid)
                     if result:
                         v['clinvar_data'] = result
                         success_count += 1

@@ -128,7 +128,7 @@ def process_rsid(rsid):
     try:
         # Step 1: 查询 ClinVar 数据
         print(f"[INFO] 查询 ClinVar 信息: {rsid}")
-        variant = clinvar_query.query_clinvar(rsid)
+        variant = clinvar_query.query_with_fallback(rsid)
         if not variant:
             raise ValueError(f"ClinVar 查询失败，未找到 rsID: {rsid}")
 
@@ -147,6 +147,7 @@ def process_rsid(rsid):
             print(f"[INFO] 构建临时 VCF 文件: {tmp_vcf_path}")
 
             # 必须确认 pos 是数字字符串
+            print(f"位置: {pos}")
             if pos is None or not str(pos).isdigit():
                 raise ValueError(f"无效的变异位置 pos: {pos}")
 

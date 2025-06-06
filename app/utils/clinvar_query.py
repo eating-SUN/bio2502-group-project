@@ -97,7 +97,7 @@ def query_with_fallback(variant_id):
         if result:
             return result
 
-        result = query_clinvar(variant_id, db_path="data/backup/less_accurate.db", db_type='secondary')
+        result = query_clinvar(variant_id, db_path="data/clinvar/variant_summary.db", db_type='secondary')
         if result:
             result['Note'] = '来自次级数据库，准确性较低'
             return result

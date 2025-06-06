@@ -18,9 +18,9 @@ SEQ_LEN = 1000
 
 CLNSIG_SCORE = {
     'Benign': 0.0,
-    'Likely_benign': 0.05,
-    'Uncertain_significance': 0.25,
-    'Likely_pathogenic': 0.7,
+    'Likely_benign': 0.1,
+    'Uncertain_significance': 0.5,
+    'Likely_pathogenic': 0.8,
     'Pathogenic': 1.0
 }
 
@@ -76,7 +76,7 @@ def predict_variant(model, gene_encoder, variant):
     else:
         output = model(seq_tensor, variant_mask=mask_tensor)
 
-    # 模型已经输出 [0, 1] 范围内的回归值，无需再 sigmoid
+    output.clamp_(0, 1)
     score = output.item()
 
     # 映射到临床标签
