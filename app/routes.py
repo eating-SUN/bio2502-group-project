@@ -190,9 +190,22 @@ def generate_report():
         
         # 添加神经网络预测信息
         model_score = task.get('score', 0.0)
-        
+        # 计算模型预测风险等级
+        if model_score < 0.05:
+            risk_level = '几乎无风险'
+        elif model_score < 0.25:
+            risk_level = '风险低'
+        elif model_score < 0.7:
+            risk_level = '风险较低，需进一步观察'
+        elif model_score < 0.99:
+            risk_level = '高风险'
+        else:
+            risk_level = '极高风险'
+
         pdf.add_section("神经网络预测风险评分", [
-            f"评分: {model_score * 100:.2f}%"
+            f"评分: {model_score :.4f}",
+            f"风险等级: {risk_level}",
+            f"基于 {len(result.get('variants', []))} 个变异计算"
         ])
         
         # 添加变异摘要
@@ -251,7 +264,7 @@ def generate_report():
                     'Pathogenic': '致病'
                 }
                 translated_label = label_translation.get(predict_label, '未知')
-                
+                translated_significance = label_translation.get(clinvar_data.get('ClinicalSignificance', 'Unknown'), '未知')
                 # 格式化RegulomeDB分数
                 if isinstance(regulome_score, dict) and 'ranking' in regulome_score:
                     regulome_text = f"{regulome_score['ranking']} ({regulome_score.get('probability_score', 'N/A')})"
@@ -263,7 +276,7 @@ def generate_report():
                     var_info.get('id', ''),
                     var_info.get('ref', ''),
                     var_info.get('alt', ''),
-                    clinvar_data.get('ClinicalSignificance', '未知'),
+                    translated_significance,
                     clinvar_data.get('Gene', '-'),  # 添加基因列
                     translated_label,  # 模型预测标签   
                     f"{predict_score:.4f}" if predict_score else 'N/A',  # 模型预测得分

@@ -38,7 +38,7 @@
                       <div class="card-body text-center">
                           <h5 class="card-title">临床注释</h5>
                           <p class="card-text">整合ClinVar数据库，建立本地注释系统</p>
-                          <i class="bi bi-database-fill fs-1 text-primary"></i>
+                          
                       </div>
                   </div>
               </div>
@@ -46,8 +46,7 @@
                   <div class="card research-card h-100">
                       <div class="card-body text-center">
                           <h5 class="card-title">机器学习</h5>
-                          <p class="card-text">随机森林模型预测变异致病性（AUC&gt;0.8）</p>
-                          <i class="bi bi-brain fs-1 text-primary"></i>
+                          <p class="card-text">神经网络模型预测变异致病性（AUC&gt;0.8）</p>
                       </div>
                   </div>
               </div>
@@ -56,7 +55,7 @@
                       <div class="card-body text-center">
                           <h5 class="card-title">功能分析</h5>
                           <p class="card-text">蛋白质结构预测与调控区域注释</p>
-                          <i class="bi bi-protein fs-1 text-primary"></i>
+                         
                       </div>
                   </div>
               </div>
@@ -65,7 +64,6 @@
                       <div class="card-body text-center">
                           <h5 class="card-title">PRS分析</h5>
                           <p class="card-text">整合多处变异预测乳腺癌概率</p>
-                          <i class="bi bi-protein fs-1 text-primary"></i>
                       </div>
                   </div>
               </div>
