@@ -12,7 +12,7 @@
         </div>
       </div>
       <hr class="bg-light">
-      <p class="mb-0">&copy; 2024 致病性变异分析系统</p>
+      <p class="mb-0">&copy; 2025 上海交通大学生命科学技术学院</p>
     </div>
   </footer>
 </template>
