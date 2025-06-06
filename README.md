@@ -11,10 +11,50 @@
 - **机器学习模型预测疾病风险**：使用机器学习模型预测乳腺癌患病风险
 - **报告生成**：自动生成包含图表和详细分析结果的PDF报告
 
+---
 
 ## 项目结构
 
 ```
+.
+├── run.py                       # 项目入口
+├── to_csv.py                   # 工具脚本：VCF转CSV
+├── requirements.txt            # Python依赖列表
+├── README.md                   # 项目说明文档
+
+├── app/                        # Flask 后端模块
+│   ├── routes.py               # 路由定义
+│   ├── pdf_report.py           # PDF 报告生成
+│   ├── uploads/                # 上传的VCF文件
+│   ├── static/                 # 前端静态资源
+│   ├── templates/              # 前端 HTML 模板
+│   └── utils/                  # 功能函数（如ClinVar查询等）
+
+├── predict/                    # 疾病风险预测模块
+│   ├── main.py                 # 预测主逻辑
+│   └── model/                  # 训练好的模型文件
+
+├── data/                       # 本地数据库和参考数据
+│   ├── clinvar/               # ClinVar数据库（sqlite）
+│   ├── regulome/              # RegulomeDB相关数据
+│   ├── prs/                   # 多基因风险评分数据
+│   └── GRCh38/                # 基因组参考文件
+
+├── ensembl-vep/               # VEP工具（本地注释器）
+│   └── ...                    # 由 Ensembl 提供的 VEP 文件
+
+├── frontend/                  # Vue3 + Vite 前端项目
+│   ├── src/                   # 前端源码
+│   ├── public/                # 静态资源
+│   └── package.json 等        # 前端配置文件
+
+├── scripts/                   # 安装与数据下载脚本
+│   ├── install_vep.sh         # 安装 VEP
+│   ├── download_data.sh       # 下载 ClinVar、Regulome 数据
+│   └── install_requirements.sh# 安装依赖
+
+├── test_files/                # 示例 VCF 文件（用于测试）
+└── node_modules/              # 前端依赖（自动生成）
 
 ```
 
@@ -100,7 +140,7 @@ tar -xzf homo_sapiens_vep_114_GRCh38.tar.gz -C ~/.vep
 aria2c -s 16 -x 16 "ftp://ftp.ensembl.org/pub/release-114/variation/indexed_vep_cache/homo_sapiens_vep_114_GRCh38.tar.gz"
 ```
 
-
+---
 
 ### 2. 下载参考基因组 FASTA （GRCh38）
 
@@ -112,7 +152,6 @@ mv Homo_sapiens.GRCh38.dna.primary_assembly.fa data/GRCh38/
 ```
 
 > 请确保 VEP 主程序目录和缓存目录设置正确，可在 backend 或 config 中调整路径。
-
 
 ---
 
@@ -131,16 +170,51 @@ bash scripts/install_requirements.sh
 * 创建并激活虚拟环境（默认名为 `venv`，在 `scripts/` 目录下）
 * 使用 `requirements.txt` 文件安装所有依赖包
 
+---
 
 ## 测试数据演示
 为了方便用户快速体验功能，项目内提供了测试数据：
- * test_files/test_samples.vcf — 示例 VCF 文件
+ * test_files/test.vcf — 示例 VCF 文件
  * test_files/test_rsid.txt — 示例单个变异 rsID 列表
 
 你可以在网页上上传该文件进行测试。
 
+### 数据格式说明
+
+#### VCF 文件格式
+
+**必需字段：**
+
+ - CHROM: 染色体编号
+ - POS: 变异位置
+ - ID: 变异标识符（如 rsID）
+ - REF: 参考序列
+ - ALT: 替换序列
+ - QUAL: 变异质量
+ - FILTER: 过滤条件
+ - INFO: 附加信息
+
+**示例：**
+```
+##fileformat=VCFv4.2
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	10000	rs12345	A	T	100	PASS	AC=1;AF=0.5;AN=2;NS=1;DP=100;EAS_AF=0.5;AMR_AF=0.5;AFR_AF=0.5;EUR_AF=0.5;SAS_AF=0.5
+```
+
+#### rsID 列表格式
+
+每行一个 rsID。
+
+**示例：**
+```
+rs12345
+rs67890
+```
+
+---
 
 ## 项目贡献
 * 欢迎对本项目进行贡献，你可以通过以下方式参与：
    * **提交问题**：如果你发现项目中存在 bug 或有功能改进建议，可以在 GitHub 仓库的 “Issues” 页面提交问题。
    * **提交代码**：你可以 Fork 本项目仓库，进行代码修改或功能开发后，通过 Pull Request 提交你的代码贡献。
+
