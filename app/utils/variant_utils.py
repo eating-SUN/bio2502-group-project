@@ -132,6 +132,7 @@ def process_variants(task_id, variants, tasks, file_path=None):
             total_score = 0.0
             total_dosage = 0.0
             score_list = []
+            variant_count = 0
 
             with torch.no_grad():
                 for v in variants:
@@ -165,16 +166,19 @@ def process_variants(task_id, variants, tasks, file_path=None):
                     if dosage is not None and isinstance(dosage, (int, float)) and dosage > 0:
                         total_score += score * dosage
                         total_dosage += dosage
+                    
+                    variant_count += 1
 
             if total_dosage > 0:
                 final_score = total_score / total_dosage
             elif score_list:
-                final_score = sum(score_list) / len(score_list)  # 或者用 final_score = score_list[-1]
+                final_score = sum(score_list) / len(score_list)  
             else:
                 final_score = 0.0
 
             tasks[task_id]['score'] = final_score
             print(f"[INFO][{task_id}] 模型预测完成，总评分: {final_score:.4f}")
+            print(f"[INFO][{task_id}] 基于 {variant_count} 个变异进行预测")
 
         except Exception as e:
             print(f"[ERROR][{task_id}] 处理变异失败: {e}")
@@ -185,17 +189,16 @@ def process_variants(task_id, variants, tasks, file_path=None):
         # 保存结果
         try:
             print(f"[INFO][{task_id}] 整理结果中...")
-            subset = variants[:100]
             tasks[task_id]['result'] = {
                 'status': 'completed',
-                'variants': subset,
+                'variants': variants,
                 'summary': {
-                    'variant_info': [v.get('variant_info') for v in subset],
-                    'protein_info': [v.get('protein_info') for v in subset],
-                    'protein_features': [v.get('protein_features') for v in subset],
-                    'regulome_scores': [v.get('regulome_score') for v in subset],
-                    'clinvar_data': [v.get('clinvar_data') for v in subset],
-                    'predict_result': [v.get('predict_result') for v in subset]
+                    'variant_info': [v.get('variant_info') for v in variants],
+                    'protein_info': [v.get('protein_info') for v in variants],
+                    'protein_features': [v.get('protein_features') for v in variants],
+                    'regulome_scores': [v.get('regulome_score') for v in variants],
+                    'clinvar_data': [v.get('clinvar_data') for v in variants],
+                    'predict_result': [v.get('predict_result') for v in variants]
                 }
             }
             tasks[task_id]['status'] = 'completed'
