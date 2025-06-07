@@ -46,7 +46,7 @@
                   <div class="card research-card h-100">
                       <div class="card-body text-center">
                           <h5 class="card-title">机器学习</h5>
-                          <p class="card-text">神经网络模型预测变异致病性（AUC&gt;0.8）</p>
+                          <p class="card-text">神经网络模型预测变异致病性</p>
                       </div>
                   </div>
               </div>
