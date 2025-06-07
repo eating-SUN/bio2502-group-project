@@ -54,7 +54,8 @@
 │   └── install_requirements.sh# 安装依赖
 
 ├── test_files/                # 示例 VCF 文件（用于测试）
-└── node_modules/              # 前端依赖（自动生成）
+├── node_modules/              # 前端依赖（自动生成）
+└── user_manual/               # 用户手册
 
 ```
 
@@ -222,6 +223,7 @@ chr1	10000	rs12345	A	T	100	PASS	AC=1;AF=0.5;AN=2;NS=1;DP=100;EAS_AF=0.5;AMR_AF=0
 #### rsID 列表格式
 
 每行一个 rsID。
+（网站仅支持单个rsID查询，列表仅供复制粘贴使用）
 
 **示例：**
 ```
