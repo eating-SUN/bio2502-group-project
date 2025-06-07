@@ -5,6 +5,7 @@
     <div class="container mt-4">
       <!-- 文件上传区 -->
       <div class="card card-spacing form-section">
+        <h6>文件较大时处理时间可能较长，请耐心等待（5000条记录约需3分钟）</h6>
         <div class="card-header bg-info text-white">上传VCF文件</div>
         <div class="card-body">
           <form @submit.prevent="submitFile"> 
