@@ -1,4 +1,10 @@
 {
-  "extends": "@tsconfig/node22/tsconfig.json",
-  "include": ["./**/*"]
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "commonjs",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true
+  },
+  "include": ["**/*.ts"]
 }
